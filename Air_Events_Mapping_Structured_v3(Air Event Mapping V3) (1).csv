@@ -1,0 +1,136 @@
+Shippeo Air Events-Out – Field Mapping (air-order-event-out.json ? Logward) v5;;;;;;
+Booked, Manifested, ETA, ReceivedFromFlight split per location (Loading/Delivery/Hub×4). Delivery Hub mapped into hub stops. Max 4 intermediate stops.;;;;;;
+;;;;;;
+Section;Logward Output Field;CONDITIONS;Shippeo Source Path;Data Type;Mandatory;Notes / Comments
+IDENTIFIERS; ; ; ; ; ; 
+IDENTIFIERS;masterAirWaybillNumber;—;order.edi_reference;String;Yes;Master Air Waybill number. Primary tracking key.
+IDENTIFIERS;houseAirWaybillNumber;—;order.edi_reference;String;;House Air Waybill. Same source — value is MAWB or HAWB depending on setup.
+IDENTIFIERS;orderReference;—;order.reference;String;;Shippeo order reference
+IDENTIFIERS;airCustomerReference;—;order.client_reference;String;Yes;Customer reference. Use with MAWB/HAWB to match shipments.
+IDENTIFIERS;consignmentReference;—;situation_justification.attributes.consignmentReference;String;;Consignment reference
+IDENTIFIERS;orderUrl;—;order.url;String;;Shippeo tracking URL
+LOADING SITE (ORIGIN) — static per shipment; ; ; ; ; ; 
+LOADING SITE (ORIGIN) — static per shipment;loadingSiteName;—;loading_site.name;String;;
+LOADING SITE (ORIGIN) — static per shipment;loadingSiteIata;—;loading_site.iata_code;String;;IATA code (null for land locations)
+LOADING SITE (ORIGIN) — static per shipment;loadingSiteAddressLine;—;loading_site.address_line;String;;Street address (for land/inland locations)
+LOADING SITE (ORIGIN) — static per shipment;loadingSiteCity;—;loading_site.city;String;;
+LOADING SITE (ORIGIN) — static per shipment;loadingSiteZipcode;—;loading_site.zipcode;String;;
+LOADING SITE (ORIGIN) — static per shipment;loadingSiteCountry;—;loading_site.country;String;;ISO country code
+DELIVERY SITE (DESTINATION) — static per shipment; ; ; ; ; ; 
+DELIVERY SITE (DESTINATION) — static per shipment;deliverySiteName;—;delivery_site.name;String;;
+DELIVERY SITE (DESTINATION) — static per shipment;deliverySiteIata;—;delivery_site.iata_code;String;;IATA code (null for land locations)
+DELIVERY SITE (DESTINATION) — static per shipment;deliverySiteAddressLine;—;delivery_site.address_line;String;;Street address (for land/inland locations)
+DELIVERY SITE (DESTINATION) — static per shipment;deliverySiteCity;—;delivery_site.city;String;;
+DELIVERY SITE (DESTINATION) — static per shipment;deliverySiteZipcode;—;delivery_site.zipcode;String;;
+DELIVERY SITE (DESTINATION) — static per shipment;deliverySiteCountry;—;delivery_site.country;String;;ISO country code
+BOOKING – AT LOADING (event_site = loading_site); ; ; ; ; ; 
+BOOKING – AT LOADING (event_site = loading_site);loadingBookedDate;booked;situation.date;DateTime;;Booking at origin. Condition: event_site == loading_site
+BOOKING – AT DELIVERY (event_site = delivery_site); ; ; ; ; ; 
+BOOKING – AT DELIVERY (event_site = delivery_site);deliveryBookedDate;booked;situation.date;DateTime;;Booking at destination. Condition: event_site == delivery_site
+HUB SITE (INTERMEDIATE STOP 1) — static per shipment; ; ; ; ; ; 
+HUB SITE (INTERMEDIATE STOP 1) — static per shipment;hubSiteDescription_stop1;;event_site.description;String;;Hub stop 1 booking — location name
+HUB SITE (INTERMEDIATE STOP 1) — static per shipment;hubSiteIata_stop1;;event_site.iata_code;String;;IATA code (null for land locations)
+HUB SITE (INTERMEDIATE STOP 1) — static per shipment;hubSiteAddressLine_stop1;;event_site.address_line;String;;Street address (for land/inland locations)
+HUB SITE (INTERMEDIATE STOP 1) — static per shipment;hubSiteCity_stop1;;event_site.city;String;;
+HUB SITE (INTERMEDIATE STOP 1) — static per shipment;hubSiteZipcode_stop1;;event_site.zipcode;String;;
+HUB SITE (INTERMEDIATE STOP 1) — static per shipment;hubSiteCountry_stop1;;event_site.country;String;;ISO country code
+HUB SITE (INTERMEDIATE STOP 2) — static per shipment; ;; ; ; ; 
+HUB SITE (INTERMEDIATE STOP 2) — static per shipment;hubSiteDescription_stop2;;event_site.description;String;;Hub stop 2 booking — location name
+HUB SITE (INTERMEDIATE STOP 2) — static per shipment;hubSiteIata_stop2;;event_site.iata_code;String;;IATA code (null for land locations)
+HUB SITE (INTERMEDIATE STOP 2) — static per shipment;hubSiteAddressLine_stop2;;event_site.address_line;String;;Street address (for land/inland locations)
+HUB SITE (INTERMEDIATE STOP 2) — static per shipment;hubSiteCity_stop2;;event_site.city;String;;
+HUB SITE (INTERMEDIATE STOP 2) — static per shipment;hubSiteZipcode_stop2;;event_site.zipcode;String;;
+HUB SITE (INTERMEDIATE STOP 2) — static per shipment;hubSiteCountry_stop2;;event_site.country;String;;ISO country code
+HUB SITE (INTERMEDIATE STOP 3) — static per shipment; ;; ; ; ; 
+HUB SITE (INTERMEDIATE STOP 3) — static per shipment;hubSiteDescription_stop3;;event_site.description;String;;Hub stop 3 booking — location name
+HUB SITE (INTERMEDIATE STOP 3) — static per shipment;hubSiteIata_stop3;;event_site.iata_code;String;;IATA code (null for land locations)
+HUB SITE (INTERMEDIATE STOP 3) — static per shipment;hubSiteAddressLine_stop3;;event_site.address_line;String;;Street address (for land/inland locations)
+HUB SITE (INTERMEDIATE STOP 3) — static per shipment;hubSiteCity_stop3;;event_site.city;String;;
+HUB SITE (INTERMEDIATE STOP 3) — static per shipment;hubSiteZipcode_stop3;;event_site.zipcode;String;;
+HUB SITE (INTERMEDIATE STOP 3) — static per shipment;hubSiteCountry_stop3;;event_site.country;String;;ISO country code
+HUB SITE (INTERMEDIATE STOP 4) — static per shipment; ;; ; ; ; 
+HUB SITE (INTERMEDIATE STOP 4) — static per shipment;hubSiteDescription_stop4;;event_site.description;String;;Hub stop 4 booking — location name
+HUB SITE (INTERMEDIATE STOP 4) — static per shipment;hubSiteIata_stop4;;event_site.iata_code;String;;IATA code (null for land locations)
+HUB SITE (INTERMEDIATE STOP 4) — static per shipment;hubSiteAddressLine_stop4;;event_site.address_line;String;;Street address (for land/inland locations)
+HUB SITE (INTERMEDIATE STOP 4) — static per shipment;hubSiteCity_stop4;;event_site.city;String;;
+HUB SITE (INTERMEDIATE STOP 4) — static per shipment;hubSiteZipcode_stop4;;event_site.zipcode;String;;
+HUB SITE (INTERMEDIATE STOP 4) — static per shipment;hubSiteCountry_stop4;;event_site.country;String;;ISO country code
+BOOKING – AT HUB  ×4 stops (event_site ? loading ? delivery); ; ; ; ; ; 
+BOOKING – AT HUB  ×4 stops (event_site ? loading ? delivery);hubBookedDate_stop1;booked;situation.date;DateTime;;Stop 1: Booking at intermediate. Condition: event_site ? loading ? delivery
+BOOKING – AT HUB  ×4 stops (event_site ? loading ? delivery);hubBookedDate_stop2;booked;situation.date;DateTime;;Stop 2: Booking at intermediate. Condition: event_site ? loading ? delivery
+BOOKING – AT HUB  ×4 stops (event_site ? loading ? delivery);hubBookedDate_stop3;booked;situation.date;DateTime;;Stop 3: Booking at intermediate. Condition: event_site ? loading ? delivery
+BOOKING – AT HUB  ×4 stops (event_site ? loading ? delivery);hubBookedDate_stop4;booked;situation.date;DateTime;;Stop 4: Booking at intermediate. Condition: event_site ? loading ? delivery
+MANIFESTED – AT LOADING (event_site = loading_site); ; ; ; ; ; 
+MANIFESTED – AT LOADING (event_site = loading_site);loadingManifestedDate;manifested;situation.date;DateTime;;Manifested at origin
+MANIFESTED – AT DELIVERY (event_site = delivery_site); ; ; ; ; ; 
+MANIFESTED – AT DELIVERY (event_site = delivery_site);deliveryManifestedDate;manifested;situation.date;DateTime;;Manifested at destination
+MANIFESTED – AT HUB  ×4 stops; ; ; ; ; ; 
+MANIFESTED – AT HUB  ×4 stops;hubManifestedDate_stop1;manifested;situation.date;DateTime;;Stop 1: Manifested at intermediate
+MANIFESTED – AT HUB  ×4 stops;hubManifestedDate_stop2;manifested;situation.date;DateTime;;Stop 2: Manifested at intermediate
+MANIFESTED – AT HUB  ×4 stops;hubManifestedDate_stop3;manifested;situation.date;DateTime;;Stop 3: Manifested at intermediate
+MANIFESTED – AT HUB  ×4 stops;hubManifestedDate_stop4;manifested;situation.date;DateTime;;Stop 4: Manifested at intermediate
+ETA – AT LOADING (event_site = loading_site); ; ; ; ; ; 
+ETA – AT LOADING (event_site = loading_site);loadingETADate;eta_event;situation.date;DateTime;;ETA at origin
+ETA – AT DELIVERY (event_site = delivery_site); ; ; ; ; ; 
+ETA – AT DELIVERY (event_site = delivery_site);deliveryETADate;eta_event;situation.date;DateTime;;ETA at destination
+ETA – AT HUB  ×4 stops; ; ; ; ; ; 
+ETA – AT HUB  ×4 stops;hubETADate_stop1;eta_event;situation.date;DateTime;;Stop 1: ETA at intermediate
+ETA – AT HUB  ×4 stops;hubETADate_stop2;eta_event;situation.date;DateTime;;Stop 2: ETA at intermediate
+ETA – AT HUB  ×4 stops;hubETADate_stop3;eta_event;situation.date;DateTime;;Stop 3: ETA at intermediate
+ETA – AT HUB  ×4 stops;hubETADate_stop4;eta_event;situation.date;DateTime;;Stop 4: ETA at intermediate
+RECEIVED FROM SHIPPER (Freight on Hand); ; ; ; ; ; 
+RECEIVED FROM SHIPPER (Freight on Hand);receivedFromShipperDate;received_from_shipper;situation.date;DateTime;;Shipment collected from shipper
+LOADING – ARRIVED AT ORIGIN; ; ; ; ; ; 
+LOADING – ARRIVED AT ORIGIN;loadingArrivedDate;goods_arrived_at_loading_arrived;situation.date;DateTime;;Arrived at origin (intermodal)
+LOADING – LOADED (COMPLIANT); ; ; ; ; ; 
+LOADING – LOADED (COMPLIANT);loadingCompliantDate;goods_loading_compliant_compliant;situation.date;DateTime;;Successfully loaded at origin
+LOADING – DEPARTED (LEFT); ; ; ; ; ; 
+LOADING – DEPARTED (LEFT);loadingLeftDate;goods_left_loading_left;situation.date;DateTime;;Flight departed from origin
+LOADING – NON COMPLIANT; ; ; ; ; ; 
+LOADING – NON COMPLIANT;loadingNonCompliantDate;goods_loading_non_compliant_*;situation.date;DateTime;;Loaded but flagged non-compliant
+LOADING – NON COMPLIANT;loadingNonCompliantJustification;goods_loading_non_compliant_*;situation.event (parse suffix);String;;"Suffix after ""goods_loading_non_compliant_"": non_compliant | partially_missing | excess_parcels | missing_document | opened | weight_difference | volume_difference | specified_damages | missing_or_damaged"
+LOADING – NON REALISED; ; ; ; ; ; 
+LOADING – NON REALISED;loadingNonRealisedDate;goods_loading_non_realised_*;situation.date;DateTime;;Loading attempted but not realized
+LOADING – NON REALISED;loadingNonRealisedJustification;goods_loading_non_realised_*;situation.event (parse suffix);String;;Suffix: not_justified | shipper_absent | closed_for_holidays | weekly_closure | partially_missing | goods_unavailable | photo_attached | shipper_notified | address_update_needed | customs_clearance_in_progress | shipper_moved | shipper_unknown_at_address | force_majeure | bad_weather | new_pickup_address | mechanical_breakdown | coded_door | scanned | unexpected_weight | specified_damages | missing_or_damaged | unexpected_volume
+LOADING – REFUSED; ; ; ; ; ; 
+LOADING – REFUSED;loadingRefusedDate;goods_loading_refused_*;situation.date;DateTime;;Loading was refused
+LOADING – REFUSED;loadingRefusedJustification;goods_loading_refused_*;situation.event (parse suffix);String;;Suffix: non_compliant | various_reasons | late_collection | damage | customs_clearance_refused | missing_document
+HUB (INTERMEDIATE STOP) – ARRIVED  ×4 stops; ; ; ; ; ; 
+HUB (INTERMEDIATE STOP) – ARRIVED  ×4 stops;hubArrivedDate_stop1;goods_arrived_at_hub_arrived OR goods_arrived_at_delivery_hub_arrived;situation.date;DateTime;;Stop 1: Arrived at interim airport. delivery_hub maps into same hub slots.
+HUB (INTERMEDIATE STOP) – ARRIVED  ×4 stops;hubArrivedDate_stop2;goods_arrived_at_hub_arrived OR goods_arrived_at_delivery_hub_arrived;situation.date;DateTime;;Stop 2: Arrived at interim airport. delivery_hub maps into same hub slots.
+HUB (INTERMEDIATE STOP) – ARRIVED  ×4 stops;hubArrivedDate_stop3;goods_arrived_at_hub_arrived OR goods_arrived_at_delivery_hub_arrived;situation.date;DateTime;;Stop 3: Arrived at interim airport. delivery_hub maps into same hub slots.
+HUB (INTERMEDIATE STOP) – ARRIVED  ×4 stops;hubArrivedDate_stop4;goods_arrived_at_hub_arrived OR goods_arrived_at_delivery_hub_arrived;situation.date;DateTime;;Stop 4: Arrived at interim airport. delivery_hub maps into same hub slots.
+HUB (INTERMEDIATE STOP) – DEPARTED  ×4 stops; ; ; ; ; ; 
+HUB (INTERMEDIATE STOP) – DEPARTED  ×4 stops;hubLeftDate_stop1;goods_left_hub_left OR goods_left_delivery_hub_left;situation.date;DateTime;;Stop 1: Departed from interim airport.
+HUB (INTERMEDIATE STOP) – DEPARTED  ×4 stops;hubLeftDate_stop2;goods_left_hub_left OR goods_left_delivery_hub_left;situation.date;DateTime;;Stop 2: Departed from interim airport.
+HUB (INTERMEDIATE STOP) – DEPARTED  ×4 stops;hubLeftDate_stop3;goods_left_hub_left OR goods_left_delivery_hub_left;situation.date;DateTime;;Stop 3: Departed from interim airport.
+HUB (INTERMEDIATE STOP) – DEPARTED  ×4 stops;hubLeftDate_stop4;goods_left_hub_left OR goods_left_delivery_hub_left;situation.date;DateTime;;Stop 4: Departed from interim airport.
+RECEIVED FROM FLIGHT – AT LOADING (event_site = loading_site); ; ; ; ; ; 
+RECEIVED FROM FLIGHT – AT LOADING (event_site = loading_site);loadingReceivedFromFlightDate;received_from_flight;situation.date;DateTime;;Unloaded from flight at origin
+RECEIVED FROM FLIGHT – AT DELIVERY (event_site = delivery_site); ; ; ; ; ; 
+RECEIVED FROM FLIGHT – AT DELIVERY (event_site = delivery_site);deliveryReceivedFromFlightDate;received_from_flight;situation.date;DateTime;;Unloaded from flight at destination
+RECEIVED FROM FLIGHT – AT HUB  ×4 stops; ; ; ; ; ; 
+RECEIVED FROM FLIGHT – AT HUB  ×4 stops;hubReceivedFromFlightDate_stop1;received_from_flight;situation.date;DateTime;;Stop 1: Unloaded from flight at intermediate
+RECEIVED FROM FLIGHT – AT HUB  ×4 stops;hubReceivedFromFlightDate_stop2;received_from_flight;situation.date;DateTime;;Stop 2: Unloaded from flight at intermediate
+RECEIVED FROM FLIGHT – AT HUB  ×4 stops;hubReceivedFromFlightDate_stop3;received_from_flight;situation.date;DateTime;;Stop 3: Unloaded from flight at intermediate
+RECEIVED FROM FLIGHT – AT HUB  ×4 stops;hubReceivedFromFlightDate_stop4;received_from_flight;situation.date;DateTime;;Stop 4: Unloaded from flight at intermediate
+DELIVERY – ARRIVED AT DESTINATION; ; ; ; ; ; 
+DELIVERY – ARRIVED AT DESTINATION;deliveryArrivedDate;goods_arrived_at_delivery_arrived;situation.date;DateTime;;Flight arrived at final destination
+DELIVERY – DELIVERED (COMPLIANT); ; ; ; ; ; 
+DELIVERY – DELIVERED (COMPLIANT);deliveryCompliantDate;goods_delivery_compliant_compliant;situation.date;DateTime;;Successfully delivered to consignee
+DELIVERY – DELIVERED (COMPLIANT);deliveryCompliantSituationCode;goods_delivery_compliant_compliant;situation.situation_code;String;;"e.g. ""LIV"""
+DELIVERY – DELIVERED (COMPLIANT);deliveryCompliantJustificationCode;goods_delivery_compliant_compliant;situation.justification_code;String;;"e.g. ""CFM"""
+DELIVERY – DEPARTED (LEFT); ; ; ; ; ; 
+DELIVERY – DEPARTED (LEFT);deliveryLeftDate;goods_left_delivery_left;situation.date;DateTime;;Left destination (intermodal last-mile)
+DELIVERY – NON COMPLIANT; ; ; ; ; ; 
+DELIVERY – NON COMPLIANT;deliveryNonCompliantDate;goods_delivery_non_compliant_*;situation.date;DateTime;;Delivered but flagged non-compliant
+DELIVERY – NON COMPLIANT;deliveryNonCompliantJustification;goods_delivery_non_compliant_*;situation.event (parse suffix);String;;Suffix: various_reservations | missing_document | unloading_finished | receipt_not_signed | specified_damages | missing_or_damaged | pilferage | reservations_for_missing_parcels
+DELIVERY – NON REALISED; ; ; ; ; ; 
+DELIVERY – NON REALISED;deliveryNonRealisedDate;goods_delivery_non_realised_*;situation.date;DateTime;;Delivery attempted but not realized
+DELIVERY – NON REALISED;deliveryNonRealisedJustification;goods_delivery_non_realised_*;situation.event (parse suffix);String;;Suffix: closed_for_holidays | weekly_closure | photo_attached | recipient_notified | address_update_needed | recipient_closed | recipient_moved | recipient_unknown_at_address | force_majeure | problem_with_geographical_position | bad_weather | new_delivery_address | opened | mechanical_breakdown | coded_door | missing_or_damaged | partial_distress
+DELIVERY – REFUSED; ; ; ; ; ; 
+DELIVERY – REFUSED;deliveryRefusedDate;goods_delivery_refused_*;situation.date;DateTime;;Consignee refused shipment
+DELIVERY – REFUSED;deliveryRefusedJustification;goods_delivery_refused_*;situation.event (parse suffix);String;;Suffix: not_justified | various_reasons | partially_missing | completely_missing | missing_document | not_ordered | postage_due | pilferage | cash_on_delivery | late_delivery | damage
+POST-DELIVERY; ; ; ; ; ; 
+POST-DELIVERY;documentationDeliveredDate;documentation_delivered;situation.date;DateTime;;Documents reached destination
+POST-DELIVERY;consigneeNotifiedDate;consignee_notified;situation.date;DateTime;;Consignee informed shipment ready
