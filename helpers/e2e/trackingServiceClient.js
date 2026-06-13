@@ -24,9 +24,10 @@
 
 const { request } = require('@playwright/test');
 const { E2E_CONFIG } = require('./e2eConfig');
+const { getAdminToken } = require('./cognitoAuth');
 
-const headers = () => ({
-  'Authorization': `Bearer ${E2E_CONFIG.ADMIN_TOKEN}`,
+const headers = async () => ({
+  'Authorization': `Bearer ${await getAdminToken()}`,
   'Content-Type':  'application/json',
   'accept':        'application/json',
 });
@@ -74,7 +75,7 @@ async function fetchTrackingDocuments(identifiers) {
     console.log(`  [tracking] POST body:`, JSON.stringify(reqBody));
 
     const res = await ctx.post('api/tracking/track/shippeo/ocean/get', {
-      headers: headers(),
+      headers: await headers(),
       data:    reqBody,
     });
 

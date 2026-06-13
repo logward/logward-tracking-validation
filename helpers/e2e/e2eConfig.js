@@ -35,11 +35,10 @@ const TOKENS = {
 
   // ── QA ────────────────────────────────────────────────────────────────────
   qa: {
-    adminToken: process.env.QA_ADMIN_TOKEN ||
-      'eyJraWQiOiJIOU5CdVoyb3NWN0hpTG9WaEtPWC8xZENkdHlBNmdOMzd0N3NQL0MyT0xRPSIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiJjMzUwOWFhMy02NDM0LTQ0ODktYjcwOC01OTQ3NTRiMjk0ZjgiLCJjb2duaXRvOmdyb3VwcyI6WyJDdXN0b21lckFkbWluIl0sImlzcyI6Imh0dHBzOi8vY29nbml0by1pZHAuZXUtY2VudHJhbC0xLmFtYXpvbmF3cy5jb20vZXUtY2VudHJhbC0xX0dJbDFpelQ3QiIsImNsaWVudF9pZCI6Im1ocTZoN3Y2bjJjZHZqOW1zam9vcThraDQiLCJvcmlnaW5fanRpIjoiZTRkYzg0OWQtOGU3Ni00ZDc3LWEwNGQtYWZlYmZlMjQzYTVhIiwiZXZlbnRfaWQiOiJkNGUyZDg1Mi1lNGZjLTRmNjEtYTJhYS02Y2ZhYWY5YWEyNDAiLCJ0b2tlbl91c2UiOiJhY2Nlc3MiLCJzY29wZSI6ImF3cy5jb2duaXRvLnNpZ25pbi51c2VyLmFkbWluIiwiYXV0aF90aW1lIjoxNzgwODM4NjMyLCJleHAiOjE3ODA4NDIyMzIsImlhdCI6MTc4MDgzODYzMiwianRpIjoiOGQwZjY3YjctNDgwMC00NDMyLWFkNGYtNDc0ZTM0ODBkZDViIiwidXNlcm5hbWUiOiJjMzUwOWFhMy02NDM0LTQ0ODktYjcwOC01OTQ3NTRiMjk0ZjgifQ.Nzv1HkXbfDnK3gxXZkA3KAh7HjAu70tNCt-a7Znsqu0sOtNaDhykfaaBRk2UTmpPy7CiGu-tvmanx9jbeymHFv5gmTwxJFAEOMDHo5n1byL1Cay1dYtBRlmkBXvUSqsfct6mJqSn2BhRu8Hm9PBsYf6oETR2VcF0SoqZcqRfO6VaM3bKASzW3m4lg8t-GY2y0eaCRClJ2ekNyGsLBmLB9LE7qSupW_azjB8JiNnridt_yh1SII12pMEfqQAlm7-j3r--sXupvjwsWAgo-jWadsl7VduESC-jgMYMCJfwjL10suzu8Uk7fBTnOSnZzPLN3__Zo9dFzCTRLyAVnniSNg',
-
+    // ── Webhook token — long-lived (expires 2027) ─────────────────────────
+    // Used by: Events-Out webhook (Shippeo → Logward)
     webhookToken: process.env.QA_WEBHOOK_TOKEN ||
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2NvdW50SWQiOiIwMDEwUTAwMDAwVFpvc1FRQVQiLCJjb2RlIjoidjEyQkhtNVhHUWdaIiwiZXhwIjoxODA4NTkxNDAwLCJpc3MiOiJodHRwczovL2NvZ25pdG8taWRwLmV1LWNlbnRyYWwtMS5hbWF6b25hd3MuY29tL2V1LWNlbnRyYWwtMV9HSWwxaXpUN0IiLCJhdWQiOiJsb2d3YXJkLmNvbSJ9.BHqHsfrYweYeHyHrgziLqvJmm2Q5vh6tO59va4nF2tw',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2NvdW50SWQiOiIwMDEwUTAwMDAwVFpvc1FRQVQiLCJjb2RlIjoiRkVlRzV0S2hrM3RXIiwiZXhwIjoxODA4NzYzMzAwLCJpc3MiOiJodHRwczovL2NvZ25pdG8taWRwLmV1LWNlbnRyYWwtMS5hbWF6b25hd3MuY29tL2V1LWNlbnRyYWwtMV9HSWwxaXpUN0IiLCJhdWQiOiJsb2d3YXJkLmNvbSJ9.N8lDfXx42AnxfW82RvgY-fTrPikKhqPxZD7crGWmB1A',
   },
 
   // ── Sandbox ───────────────────────────────────────────────────────────────
@@ -63,11 +62,12 @@ const TOKENS = {
 const ENVIRONMENTS = {
   qa: {
     label:           'QA',
-    adminUrl:        'https://qa-admin.logward.engineering',
-    trackingUrl:     'https://qa-admin.logward.engineering',
+    adminUrl:        'https://qa.logward.engineering',       // upsert (create/update)
+    adminGetUrl:     'https://qa-admin.logward.engineering', // object GET
+    trackingUrl:     'https://qa.logward.engineering',
     webhookUrl:      'https://qa.logward.engineering',
     webhookPath:     '/api/integration-hub/tracking/shippeo/ocean_order_event_out',
-    webhookClientId: '0010Q00001iPMHnQAO',
+    webhookClientId: 'Vbc1r8621FLbtFFl2E',
     accountId:       'Vbc1r8621FLbtFFl2E',
   },
   sandbox: {
@@ -106,22 +106,42 @@ const E2E_CONFIG = {
   ENV_NAME:  SELECTED_ENV,
   ENV_LABEL: ENV.label,
 
-  // ── Admin API (Orders-In: create / read tracking objects) ─────────────────
-  ADMIN_BASE_URL: ENV.adminUrl,
-  ADMIN_TOKEN:    ENV_TOKENS.adminToken,
-  ACCOUNT_ID:     ENV.accountId,
+  // ── Cognito credentials — used by cognitoAuth.js to auto-login ──────────
+  // Set once; cognitoAuth.js refreshes the token automatically every ~1h
+  COGNITO: {
+    username: process.env.LOGWARD_USERNAME || 'kvsm.vikas@logward.com',
+    password: process.env.LOGWARD_PASSWORD || 'ftc6zpy-hkg5gwr5BXY',
+  },
+
+  // ── Admin API — all use Cognito token via cognitoAuth.js ─────────────────
+  ADMIN_BASE_URL:    ENV.adminUrl,                        // upsert (create/update)
+  ADMIN_GET_URL:     ENV.adminGetUrl || ENV.adminUrl,     // object GET
+  ACCOUNT_ID:        ENV.accountId,
 
   // ── Tracking Service API (scheduler + MongoDB verification) ───────────────
   TRACKING_BASE_URL: ENV.trackingUrl,
 
   // ── Audit API ─────────────────────────────────────────────────────────────
+  // Confirmed: GET /api/tower/audit/{objectCode}?schemaType=...&isAdmin=true&p=0&s=100
   AUDIT_PATH: '/api/tower/audit',
 
-  // ── Shippeo Partner API (verify shipment is searchable in Shippeo) ────────
+  // ── Shippeo Backoffice API ────────────────────────────────────────────────
+  // Fully automatic — no manual token steps needed.
+  // shippeoAuth.js priority: memory cache → disk cache → headless browser login
+  // Headless login fires once per day (~3 sec), then auto-refreshes every 15 min.
   SHIPPEO: {
     baseUrl:        process.env.SHIPPEO_API_BASE_URL || 'https://api.shippeo.com',
-    token:          process.env.SHIPPEO_API_TOKEN    || '<FILL_IN>',
-    searchPath:     '/v2/orders',
+    clientId:       '4571962d-46de-4590-b196-2d46deb59066',
+
+    // ── Credentials — set once, works forever via headless browser login ──────
+    username:       process.env.SHIPPEO_USERNAME || 'kvsm.vikas@shippeo.com',
+    password:       process.env.SHIPPEO_PASSWORD || 'wge0ytz.qfr*BUX-fhx',
+
+    // ── Leave blank — tokens obtained automatically ───────────────────────────
+    refreshToken:   process.env.SHIPPEO_REFRESH_TOKEN || '',
+    token:          process.env.SHIPPEO_API_TOKEN     || '',
+
+    searchPath:     '/core/orders/debug/search',
     searchParamKey: 'reference',
   },
 
@@ -130,10 +150,12 @@ const E2E_CONFIG = {
   OCEAN: {
     SCHEMA_TYPE:   'TransportUnitOcean',
     UPSERT_PATH:   '/api/tower/data/TransportUnitOcean/upsert',
+    GET_PATH:      '/api/tower/data/TransportUnitOcean',
     CREATE_NEW:    true,
 
-    BOOKING_NUMBER:     process.env.E2E_OCEAN_BOOKING || 'E2EBOOK001',
-    BL_NUMBER:          process.env.E2E_OCEAN_BL      || 'E2EBL001',
+    // Last 4 digits of timestamp make these unique per run — avoids routing to stale OTUs
+    BOOKING_NUMBER:     process.env.E2E_OCEAN_BOOKING || ('E2EBOOK' + (Date.now() % 10000).toString().padStart(4, '0')),
+    BL_NUMBER:          process.env.E2E_OCEAN_BL      || ('E2EBL'   + (Date.now() % 10000).toString().padStart(4, '0')),
     SCAC:               process.env.E2E_OCEAN_SCAC    || 'MSCU',
     CARRIER_SHORT_NAME: 'MSC',
     CARRIER_NAME:       'Mediterranean Shipping Company',
@@ -151,9 +173,9 @@ const E2E_CONFIG = {
 
   // ── Polling timeouts ──────────────────────────────────────────────────────
   POLL_INTERVAL_MS:     10000,
-  SCHEDULER_TIMEOUT_MS: 30000,
+  SCHEDULER_TIMEOUT_MS: 120000,  // 2 min — update scenarios need more time for re-processing
   MONGO_TIMEOUT_MS:     60000,
-  SHIPPEO_TIMEOUT_MS:   120000,
+  SHIPPEO_TIMEOUT_MS:   180000,  // 3 min — Shippeo propagation can be slow
   AUDIT_TIMEOUT_MS:     30000,
 
 };

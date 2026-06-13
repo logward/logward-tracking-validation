@@ -47,7 +47,7 @@ function statusRow(label, value, okValue, okText, failText) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function buildHtml(d) {
-  const overallPassed = d.objectCreation.passed && d.scheduler.passed && d.mongoDb.passed;
+  const overallPassed = d.objectCreation.passed && d.scheduler.passed && d.mongoDb.passed && d.shippeo.passed;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -160,7 +160,7 @@ function buildHtml(d) {
 <div class="overall ${overallPassed ? 'pass' : 'fail'}">
   <span class="icon">${overallPassed ? '✅' : '❌'}</span>
   <span>Orders-In ${overallPassed ? 'PASSED' : 'FAILED'} —
-    ${[d.objectCreation.passed, d.scheduler.passed, d.mongoDb.passed].filter(Boolean).length} of 3 checks passed
+    ${[d.objectCreation.passed, d.scheduler.passed, d.mongoDb.passed, d.shippeo.passed].filter(Boolean).length} of 4 checks passed
   </span>
 </div>
 
@@ -184,7 +184,11 @@ function buildHtml(d) {
       </div>
       <span class="flow-arrow">→</span>
       <div class="flow-step ${d.mongoDb.passed ? 'done' : (d.scheduler.passed ? 'fail' : 'skip')}">
-        🗄️ Shippeo Synced
+        🗄️ Mongo Synced
+      </div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-step ${d.shippeo.passed ? 'done' : (d.mongoDb.passed ? 'fail' : 'skip')}">
+        🚢 Shippeo Verified
       </div>
     </div>
   </div>
@@ -281,6 +285,35 @@ function buildHtml(d) {
     </div>
   </div>
 
+<!-- ══ SECTION 4: SHIPPEO VERIFICATION ══════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon">🚢</div>
+      <div class="section-title">
+        <h2>Step 4 — Shippeo Order Verification</h2>
+        <p>
+          Confirms the shipment is <strong>visible and searchable in Shippeo</strong> using the
+          Shippeo backoffice debug API. A successful result means Shippeo has registered the
+          order and it is ready to receive tracking events.
+        </p>
+      </div>
+      ${badge(d.shippeo.passed)}
+    </div>
+    <div class="section-body">
+      <table>
+        ${statusRow('Shipment Found', d.shippeo.found ? 'Yes' : 'No', 'Yes', 'Order exists in Shippeo', 'Order not found — sync may be pending or failed')}
+        ${row('Search Reference',   d.shippeo.reference,    'Format used to search: bookingId_containerId')}
+        ${row('Order ID',           d.shippeo.orderId,      'Shippeo internal order ID')}
+        ${row('Hash ID',            d.shippeo.hashId,       'Shippeo hash ID')}
+        ${row('Organisation',       d.shippeo.organisation)}
+        ${row('Agency',             d.shippeo.agency)}
+        ${row('Order Created At',   d.shippeo.createdAt)}
+        ${row('Transport Mode',     d.shippeo.transportMode)}
+      </table>
+      ${d.shippeo.errorMessage ? `<div class="error-box">⚠️ Error: ${d.shippeo.errorMessage}</div>` : ''}
+    </div>
+  </div>
+
 </div><!-- /sections -->
 
 <div class="footer">
@@ -300,13 +333,18 @@ function buildHtml(d) {
  * @param [outputPath]  Defaults to playwright-report/e2e/orders-in-report.html - Absolute path to the written file
  */
 function generateOrdersInReport(data, outputPath) {
-  const dest = outputPath
-    ? path.resolve(outputPath)
-    : path.resolve('playwright-report', 'e2e', 'orders-in-report.html');
+  let dest;
+  if (outputPath) {
+    dest = path.resolve(outputPath);
+  } else {
+    // Use the same run folder as playwright.config.js so all reports stay together
+    const runDir = process.env.PLAYWRIGHT_RUN_DIR || 'playwright-report/runs/latest';
+    dest = path.resolve(runDir, 'ocean', 'orders-in-report.html');
+  }
 
   fs.mkdirSync(path.dirname(dest), { recursive: true });
   fs.writeFileSync(dest, buildHtml(data), 'utf8');
-  console.log(`\n  📊 Orders-In report written → ${dest}\n`);
+  console.log(`\n  📊 Orders-In report → ${dest}\n`);
   return dest;
 }
 
@@ -339,6 +377,11 @@ function createReportData(containerNumber) {
       billOfLadingId: null, scacCode: null, serviceProvider: null,
       identifier: null, error: null, uniqueReference: null,
       createdAt: null, eventsCount: null, errorMessage: null,
+    },
+    shippeo: {
+      passed: false, found: false, reference: null, orderId: null,
+      hashId: null, organisation: null, agency: null,
+      createdAt: null, transportMode: null, errorMessage: null,
     },
   };
 }

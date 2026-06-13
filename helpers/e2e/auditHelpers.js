@@ -3,17 +3,11 @@
 //
 //  Audit History helpers for Events-Out verification.
 //
-//  Validates that after a webhook event is processed:
-//    • An audit entry was created in the Logward audit log
-//    • The incoming event is recorded
-//    • The mapping execution is recorded
-//    • The correct milestone was updated
+//  Confirmed endpoint (from network tab):
+//    GET /api/tower/audit/{objectCode}?schemaType=TransportUnitOcean&isAdmin=true&p=0&s=100
+//    Authorization: Bearer {admin_token}
 //
-//  Endpoint assumed:
-//    GET /api/tower/audit?objectCode={code}
-//    Response: { data: [ { event, placeType, milestone, createdAt, ... }, ... ] }
-//
-//  Adjust AUDIT_PATH in e2eConfig.js if the actual path differs.
+//  Response: { data: [ { event, placeType, milestone, createdAt, ... }, ... ] }
 // ─────────────────────────────────────────────────────────────────────────────
 
 const { request, expect } = require('@playwright/test');
@@ -28,19 +22,27 @@ const adminHeaders = () => ({
 
 /**
  * Fetch the audit history for a tracking object.
+ * objectCode is in the URL path — not a query param.
  *
- * @param objectCode  Logward internal object code - Array of audit entries (empty array on error/no entries)
+ * @param objectCode  Logward internal object code
+ * @param schemaType  e.g. 'TransportUnitOcean' (default)
+ * @returns Array of audit entries (empty array on error/no entries)
  */
-async function getAuditHistory(objectCode) {
+async function getAuditHistory(objectCode, schemaType = E2E_CONFIG.OCEAN.SCHEMA_TYPE) {
   const ctx = await request.newContext({ baseURL: E2E_CONFIG.ADMIN_BASE_URL });
   try {
-    const res = await ctx.get(E2E_CONFIG.AUDIT_PATH, {
+    const res = await ctx.get(`/api/tower/audit/${objectCode}`, {
       headers: adminHeaders(),
-      params:  { objectCode },
+      params:  {
+        schemaType,
+        isAdmin: true,
+        p:       0,
+        s:       100,
+      },
     });
 
     if (!res.ok()) {
-      console.warn(`  [audit] GET audit → HTTP ${res.status()} for objectCode="${objectCode}"`);
+      console.warn(`  [audit] GET → HTTP ${res.status()} for objectCode="${objectCode}"`);
       return [];
     }
 

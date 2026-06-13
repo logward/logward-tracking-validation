@@ -22,10 +22,11 @@
 
 const { request } = require('@playwright/test');
 const { E2E_CONFIG } = require('./e2eConfig');
+const { getShippeoToken } = require('./shippeoAuth');
 
 // ── Header factory ────────────────────────────────────────────────────────────
-const shippeoHeaders = () => ({
-  'Authorization': `Bearer ${E2E_CONFIG.SHIPPEO.token}`,
+const shippeoHeaders = async () => ({
+  'Authorization': `Bearer ${await getShippeoToken()}`,
   'Content-Type':  'application/json',
   'accept':        'application/json',
 });
@@ -67,7 +68,7 @@ async function searchShippeoShipment(reference) {
     const params = { [E2E_CONFIG.SHIPPEO.searchParamKey]: reference };
 
     const res = await ctx.get(url, {
-      headers: shippeoHeaders(),
+      headers: await shippeoHeaders(),
       params,
     });
 
@@ -113,8 +114,103 @@ async function pollUntilShippeoShipmentFound(reference, timeoutMs = E2E_CONFIG.S
   return searchShippeoShipment(reference).catch(() => null);
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Fetch Shippeo order debug details by hashId.
+ * URL: GET /core/ocean/order/{hashId}/debug/details
+ *
+ * @param hashId  e.g. "JXRX7P7J" — from search result's `hashid` field
+ */
+async function getShippeoOrderDetails(hashId) {
+  const ctx = await request.newContext({ baseURL: E2E_CONFIG.SHIPPEO.baseUrl });
+  try {
+    const path = `/core/ocean/order/${hashId}/debug/details`;
+    const res  = await ctx.get(path, { headers: await shippeoHeaders() });
+    console.log(`  [shippeo-details] GET ${path} → HTTP ${res.status()}`);
+    if (!res.ok()) {
+      console.warn(`  [shippeo-details] Non-OK: ${await res.text().catch(() => '')}`);
+      return null;
+    }
+    return await res.json();
+  } finally {
+    await ctx.dispose();
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Assert that a Shippeo order's details match the OTU identifiers we created.
+ * Skips status field as requested.
+ *
+ * Returns a structured result for the HTML report.
+ *
+ * @param details   Response from getShippeoOrderDetails()
+ * @param expected  { containerNumber, bookingNumber, blNumber, scac, carrierName }
+ * @returns         { allPass, rows: [{label, expected, actual, pass, skipped}] }
+ */
+function assertShippeoOrderDetails(details, { containerNumber, bookingNumber, blNumber, scac, carrierName }) {
+  const { expect } = require('@playwright/test');
+  const BAR = '─'.repeat(66);
+  const rows = [];
+
+  function check(label, actual, expected, skipReason) {
+    if (skipReason) {
+      rows.push({ label, expected: '—', actual: '—', pass: true, skipped: true, skipReason });
+      console.log(`  ${label.padEnd(32)} — skipped (${skipReason})`);
+      return;
+    }
+    const pass = actual === expected;
+    rows.push({ label, expected, actual, pass, skipped: false });
+    console.log(`  ${label.padEnd(32)} = "${actual}"  ${pass ? '✅' : '❌'}  (expected: "${expected}")`);
+    expect(pass, `[Shippeo Details] ${label}: expected "${expected}" got "${actual}"`).toBe(true);
+  }
+
+  function checkContains(label, list, expectedValue, skipReason) {
+    if (skipReason) {
+      rows.push({ label, expected: '—', actual: '—', pass: true, skipped: true, skipReason });
+      console.log(`  ${label.padEnd(32)} — skipped (${skipReason})`);
+      return;
+    }
+    const actual  = (list || []).join(', ');
+    const pass    = (list || []).includes(expectedValue);
+    rows.push({ label, expected: expectedValue, actual, pass, skipped: false });
+    console.log(`  ${label.padEnd(32)} = [${actual}]  ${pass ? '✅' : '❌'}  (should contain: "${expectedValue}")`);
+    expect(pass, `[Shippeo Details] ${label}: should contain "${expectedValue}", got [${actual}]`).toBe(true);
+  }
+
+  console.log(`\n  ${BAR}`);
+  console.log(`  SHIPPEO ORDER DETAILS ASSERTION`);
+  console.log(`  ${BAR}`);
+
+  check('container.reference',      details?.container?.reference,          containerNumber);
+  check('cargo.reference',           details?.cargo?.reference,              containerNumber);
+  check('scacAtCreation',            details?.scacAtCreation,                scac);
+  checkContains('oceanCarrier.scacList', details?.oceanCarrier?.scacList,    scac);
+  check('oceanCarrier.name',         details?.oceanCarrier?.name,            carrierName || null,
+        carrierName ? null : 'carrierName not provided');
+
+  checkContains('bookingReferenceList',
+    (details?.bookingReferenceList || []).map(b => b.reference),
+    bookingNumber, bookingNumber ? null : 'no BN on this scenario');
+
+  checkContains('billOfLadingList',
+    (details?.billOfLadingList || []).map(b => b.reference),
+    blNumber, blNumber ? null : 'no BL on this scenario');
+
+  console.log(`  ${BAR}`);
+
+  const allPass = rows.every(r => r.pass);
+  return { allPass, rows };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 module.exports = {
   buildOceanReference,
   searchShippeoShipment,
   pollUntilShippeoShipmentFound,
+  getShippeoOrderDetails,
+  assertShippeoOrderDetails,
 };

@@ -147,8 +147,9 @@ function makePayload(event, date, situationType, dataSource, eventSite, extras =
     event_site:    eventSite,
     tags:          [],
     handling_units: [],
-    booking_references:        [{ reference: CONFIG.BOOKING_REF }],
-    bill_of_lading_references: [{ reference: CONFIG.BOL_NUMBER }],
+    // Confirmed from QA webhook curl: BL uses 'identifier' key, booking uses 'reference'
+    booking_references:        CONFIG.BOOKING_REF ? [{ reference: CONFIG.BOOKING_REF }] : [],
+    bill_of_lading_references: CONFIG.BOL_NUMBER  ? [{ active: 'True', identifier: CONFIG.BOL_NUMBER }] : [],
     resources:     [],
     items:         [],
     cargo: {

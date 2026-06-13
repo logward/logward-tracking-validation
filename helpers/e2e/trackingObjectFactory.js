@@ -22,13 +22,14 @@
 
 const { request } = require('@playwright/test');
 const { E2E_CONFIG } = require('./e2eConfig');
+const { getAdminToken } = require('./cognitoAuth');
 
 // ── Frozen run timestamp (module-load time, same pattern as payload factories) ─
 const _RUN_TS = Date.now();
 
-// ── Header factory ─────────────────────────────────────────────────────────────
-const adminHeaders = () => ({
-  'Authorization': `Bearer ${E2E_CONFIG.ADMIN_TOKEN}`,
+// ── Header factory — uses Cognito auto-login ───────────────────────────────────
+const adminHeaders = async () => ({
+  'Authorization': `Bearer ${await getAdminToken()}`,
   'Content-Type':  'application/json',
   'accept':        'application/json, text/plain, */*',
 });
@@ -78,7 +79,15 @@ function buildOceanUpsertPayload(overrides = {}) {
     ...overrides,
   };
 
-  return { data: [fields], containerNumber };
+  // Remove null/undefined values so they are not sent in the payload.
+  // This allows callers to explicitly exclude fields by passing null.
+  Object.keys(fields).forEach(k => {
+    if (fields[k] === null || fields[k] === undefined) delete fields[k];
+  });
+
+  // Return the actual container number that was used (may differ from auto-generated)
+  const actualContainerNumber = fields.containerNumber || containerNumber;
+  return { data: [fields], containerNumber: actualContainerNumber };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -130,19 +139,14 @@ async function createOceanTrackingObject(overrides = {}) {
     console.log(`  [factory] containerNumber="${containerNumber}" booking="${d.bookingNumber}" BL="${d.billOfLadingNumber}" SCAC="${d.carrierScac}"`);
 
     const res = await ctx.post(url, {
-      headers: adminHeaders(),
+      headers: await adminHeaders(),
       data:    { data },
     });
 
     if (res.status() === 401) {
       throw new Error(
         `Create TransportUnitOcean → HTTP 401 Unauthorized.\n` +
-        `  The E2E_ADMIN_TOKEN has expired (Cognito tokens last ~1 hour).\n` +
-        `  Fix:\n` +
-        `    1. Log in to https://qa-admin.logward.engineering\n` +
-        `    2. Copy the Bearer token from DevTools → Network → Authorization header\n` +
-        `    3. export E2E_ADMIN_TOKEN="eyJ..."\n` +
-        `    4. Re-run the test`
+        `  Cognito token may have expired. cognitoAuth.js will re-login automatically on next run.`
       );
     }
 
@@ -181,11 +185,11 @@ async function createOceanTrackingObject(overrides = {}) {
  * @param code  Logward internal object code
  */
 async function getOceanTrackingObject(code) {
-  const ctx = await request.newContext({ baseURL: E2E_CONFIG.ADMIN_BASE_URL });
+  const ctx = await request.newContext({ baseURL: E2E_CONFIG.ADMIN_GET_URL });
   try {
     const res = await ctx.get(
-      `/api/tower/data/${E2E_CONFIG.OCEAN.SCHEMA_TYPE}/${code}`,
-      { headers: adminHeaders() }
+      `${E2E_CONFIG.OCEAN.GET_PATH}/${code}`,
+      { headers: await adminHeaders() }
     );
     if (!res.ok()) return null;
     const body = await res.json();
@@ -203,10 +207,10 @@ async function getOceanTrackingObject(code) {
  * @param code
  */
 async function deleteOceanTrackingObject(code) {
-  const ctx = await request.newContext({ baseURL: E2E_CONFIG.ADMIN_BASE_URL });
+  const ctx = await request.newContext({ baseURL: E2E_CONFIG.ADMIN_GET_URL });
   try {
     const res = await ctx.delete(
-      `/api/tower/data/${E2E_CONFIG.OCEAN.SCHEMA_TYPE}/${code}`,
+      `${E2E_CONFIG.OCEAN.GET_PATH}/${code}`,
       { headers: adminHeaders() }
     );
     console.log(`  [factory] DELETE TransportUnitOcean/${code} → HTTP ${res.status()}`);
