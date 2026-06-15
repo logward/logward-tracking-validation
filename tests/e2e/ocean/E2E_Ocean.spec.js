@@ -537,7 +537,7 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     function generateContainerRef() {
-      return 'TCKU' + String(Date.now()).slice(-7);
+      return 'LGTE' + String(Date.now()).slice(-7);
     }
 
     function pickTsp(excludeUnlocode = null) {
@@ -605,18 +605,28 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
       t2:       stageDateTsp(-7,  10),
     };
 
-    // Create a fresh OTU for TSP tests (each test gets its own OTU for isolation)
+    // Create a fresh OTU for TSP tests and wait for Shippeo tracking doc to be ready.
+    // Estimated/predicted events require Shippeo to have registered the shipment first.
     async function createTspOtu(containerRef) {
-      return createOceanTrackingObject({
+      const bn = 'TSPBK' + containerRef.slice(-5);
+      const bl = 'TSPBL' + containerRef.slice(-5);
+      const r  = await createOceanTrackingObject({
         containerNumber:    containerRef,
-        bookingNumber:      'TSPBK' + containerRef.slice(-5),
-        billOfLadingNumber: 'TSPBL' + containerRef.slice(-5),
+        bookingNumber:      bn,
+        billOfLadingNumber: bl,
         carrierScac:        'MSCU',
         carrierShortName:   'MSC',
         carrierName:        'Mediterranean Shipping Company',
         mot:                'OCEAN',
         trackingStatus:     'In Progress',
       });
+      // Wait for Shippeo tracking document to be created
+      const { pollUntilTrackingDocCreated } = require('../../../helpers/e2e/trackingServiceClient');
+      await pollUntilTrackingDocCreated({ containerId: containerRef, bookingId: bn, billOfLadingId: bl, scacCode: 'MSCU' });
+      // Extra buffer: Shippeo needs time to activate tracking pipeline before estimated events work
+      console.log(`  [TSP] Waiting 15s for Shippeo tracking to activate on ${containerRef}...`);
+      await new Promise(r => setTimeout(r, 15000));
+      return { ...r, bookingNumber: bn, blNumber: bl };
     }
 
     // Send a TSP webhook event and wait for OTU to update
@@ -651,13 +661,17 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
           position: { lat: 0, lng: 0 },
           place_type: opts.placeType || 'transhipment',
         },
-        resources: vessel ? [{ qualifier: 'milestoneVessel', identifiers: [
-          { qualifier: 'IMO',   value: vessel.imo   },
-          { qualifier: 'MMSI',  value: vessel.mmsi  },
-          { qualifier: 'LABEL', value: vessel.name  },
-        ]}] : (opts.resources !== undefined ? opts.resources : []),
+        // carrier — use SCAC from TSP OTU (created with MSCU by createTspOtu)
+        carrier: { scacs: ['MSCU'] },
+        // resources: both vessel + milestoneVessel required (confirmed from working Postman payload)
+        resources: vessel ? [
+          { qualifier: 'vessel',          identifiers: [{ qualifier: 'IMO', value: vessel.imo }, { qualifier: 'MMSI', value: vessel.mmsi }, { qualifier: 'LABEL', value: vessel.name }] },
+          { qualifier: 'milestoneVessel', identifiers: [{ qualifier: 'IMO', value: vessel.imo }, { qualifier: 'MMSI', value: vessel.mmsi }, { qualifier: 'LABEL', value: vessel.name }] },
+        ] : (opts.resources !== undefined ? opts.resources : []),
         tags: [], handling_units: [],
-        booking_references: [], bill_of_lading_references: [],
+        // Include booking + BL so Logward can route to correct OTU for estimated/predicted events
+        booking_references:        opts.bookingNumber ? [{ reference: opts.bookingNumber }] : [],
+        bill_of_lading_references: opts.blNumber     ? [{ active: 'True', identifier: opts.blNumber }] : [],
         items: [],
         cargo: { reference: opts.containerRef || containerRef, qualifier: 'CONTAINER' },
       };
@@ -675,7 +689,7 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
       test.beforeAll(async () => {
         tsp = pickTsp(); vessel = pickVesselNew();
         const r = await createTspOtu(ref);
-        ({ otu } = await sendTspEvent(ref, r.code, { tsp, vessel, event: 'container_arrived', date: SD.arrTsp1 }));
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'container_arrived', date: SD.arrTsp1 }));
       });
       test.beforeEach(() => { if (!otu) test.skip(); });
       test('NEW-R-01 | tsp1Locode set', () => { expect(otu?.tsp1Locode).toBeTruthy(); });
@@ -689,7 +703,7 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
       test.beforeAll(async () => {
         tsp = pickTsp(); vessel = pickVesselNew();
         const r = await createTspOtu('MSCU1234567');
-        ({ otu } = await sendTspEvent(ref, r.code, { tsp, vessel, event: 'container_arrived', date: SD.arrTsp1, containerRef: 'MSCU1234567' }));
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'container_arrived', date: SD.arrTsp1, containerRef: 'MSCU1234567' }));
       });
       test.beforeEach(() => { if (!otu) test.skip(); });
       test('NEW-R-02 | tsp1Locode written (old flow writes locode)', () => { expect(otu?.tsp1Locode).toBeTruthy(); });
@@ -705,7 +719,7 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
       test.beforeAll(async () => {
         tsp = pickTsp(); vessel = pickVesselNew();
         const r = await createTspOtu(ref);
-        ({ otu } = await sendTspEvent(ref, r.code, { tsp, vessel, event: 'container_arrived', date: SD.arrTsp1 }));
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'container_arrived', date: SD.arrTsp1 }));
       });
       test.beforeEach(() => { if (!otu) test.skip(); });
       test('NEW-P-01 | tsp1Locode = claimed locode', () => { expect(otu?.tsp1Locode).toBe(tsp.unlocode); });
@@ -721,7 +735,7 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
       test.beforeAll(async () => {
         tsp = pickTsp(); vessel = pickVesselNew();
         const r = await createTspOtu(ref);
-        ({ otu } = await sendTspEvent(ref, r.code, { tsp, vessel, event: 'container_unloaded', date: SD.disTsp1 }));
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'container_unloaded', date: SD.disTsp1 }));
       });
       test.beforeEach(() => { if (!otu) test.skip(); });
       test('NEW-P-02 | tsp1Locode set', () => { expect(otu?.tsp1Locode).toBe(tsp.unlocode); });
@@ -735,7 +749,7 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
       test.beforeAll(async () => {
         tsp = pickTsp(); vessel = pickVesselNew();
         const r = await createTspOtu(ref);
-        ({ otu } = await sendTspEvent(ref, r.code, { tsp, vessel, event: 'container_loaded', date: SD.ldTsp1 }));
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'container_loaded', date: SD.ldTsp1 }));
       });
       test.beforeEach(() => { if (!otu) test.skip(); });
       test('NEW-P-03 | tsp1Locode = locode at N=1', () => { expect(otu?.tsp1Locode).toBe(tsp.unlocode); });
@@ -749,7 +763,7 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
       test.beforeAll(async () => {
         tsp = pickTsp(); vessel = pickVesselNew();
         const r = await createTspOtu(ref);
-        ({ otu } = await sendTspEvent(ref, r.code, { tsp, vessel, event: 'container_departed', date: SD.depTsp1 }));
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'container_departed', date: SD.depTsp1 }));
       });
       test.beforeEach(() => { if (!otu) test.skip(); });
       test('NEW-P-04 | tsp1Locode set', () => { expect(otu?.tsp1Locode).toBe(tsp.unlocode); });
@@ -763,8 +777,8 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
       test.beforeAll(async () => {
         tsp = pickTsp(); vessel = pickVesselNew();
         const r = await createTspOtu(ref);
-        await sendTspEvent(ref, r.code, { tsp, vessel, event: 'container_arrived', date: SD.arrTsp1 });
-        ({ otu } = await sendTspEvent(ref, r.code, { tsp, vessel, event: 'container_unloaded', date: SD.disTsp1 }));
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'container_arrived', date: SD.arrTsp1 });
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'container_unloaded', date: SD.disTsp1 }));
       });
       test.beforeEach(() => { if (!otu) test.skip(); });
       test('NEW-P-05 | tsp1Locode = original locode (Pass 1 reused)', () => { expect(otu?.tsp1Locode).toBe(tsp.unlocode); });
@@ -778,10 +792,10 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
       test.beforeAll(async () => {
         tsp = pickTsp(); vessel1 = pickVesselNew(); vessel2 = pickVesselNew(vessel1.imo);
         const r = await createTspOtu(ref);
-        await sendTspEvent(ref, r.code, { tsp, vessel: vessel1, event: 'container_arrived',  date: SD.arrTsp1 });
-        await sendTspEvent(ref, r.code, { tsp, vessel: vessel1, event: 'container_unloaded', date: SD.disTsp1 });
-        await sendTspEvent(ref, r.code, { tsp, vessel: vessel2, event: 'container_loaded',   date: SD.ldTsp1  });
-        ({ otu } = await sendTspEvent(ref, r.code, { tsp, vessel: vessel2, event: 'container_departed', date: SD.depTsp1 }));
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel: vessel1, event: 'container_arrived',  date: SD.arrTsp1 });
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel: vessel1, event: 'container_unloaded', date: SD.disTsp1 });
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel: vessel2, event: 'container_loaded',   date: SD.ldTsp1  });
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel: vessel2, event: 'container_departed', date: SD.depTsp1 }));
       });
       test.beforeEach(() => { if (!otu) test.skip(); });
       test('NEW-P-06 | tsp1Locode set', () => { expect(otu?.tsp1Locode).toBe(tsp.unlocode); });
@@ -845,7 +859,7 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
       test.beforeAll(async () => {
         tsp = pickTsp(); vessel = pickVesselNew();
         const r = await createTspOtu(ref);
-        ({ otu } = await sendTspEvent(ref, r.code, { tsp, vessel, event: 'container_arrived', date: SD.estArr, type: 'estimated', dataSource: 'external' }));
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'container_arrived', date: SD.estArr, type: 'estimated', dataSource: 'external' }));
       });
       test.beforeEach(() => { if (!otu) test.skip(); });
       test('NEW-P-09 | estimatedArrivalTsp1 = local time', () => { expect(otu?.estimatedArrivalTsp1).toBe(toLocalTime(SD.estArr, tsp.timezone)); });
@@ -860,7 +874,7 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
       test.beforeAll(async () => {
         tsp = pickTsp(); vessel = pickVesselNew();
         const r = await createTspOtu(ref);
-        ({ otu } = await sendTspEvent(ref, r.code, { tsp, vessel, event: 'container_arrived', date: SD.predArr, type: 'estimated', dataSource: 'shippeo' }));
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'container_arrived', date: SD.predArr, type: 'estimated', dataSource: 'shippeo' }));
       });
       test.beforeEach(() => { if (!otu) test.skip(); });
       test('NEW-P-10 | predictedArrivalTsp1 = local time', () => { expect(otu?.predictedArrivalTsp1).toBe(toLocalTime(SD.predArr, tsp.timezone)); });
@@ -874,7 +888,7 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
       test.beforeAll(async () => {
         tsp = pickTsp(); vessel = pickVesselNew();
         const r = await createTspOtu(ref);
-        ({ otu } = await sendTspEvent(ref, r.code, { tsp, vessel, event: 'container_unloaded', date: SD.estDis, type: 'estimated', dataSource: 'external' }));
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'container_unloaded', date: SD.estDis, type: 'estimated', dataSource: 'external' }));
       });
       test.beforeEach(() => { if (!otu) test.skip(); });
       test('NEW-P-11 | estimatedDischargeTsp1 = local time', () => { expect(otu?.estimatedDischargeTsp1).toBe(toLocalTime(SD.estDis, tsp.timezone)); });
@@ -888,7 +902,7 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
       test.beforeAll(async () => {
         tsp = pickTsp(); vessel = pickVesselNew();
         const r = await createTspOtu(ref);
-        ({ otu } = await sendTspEvent(ref, r.code, { tsp, vessel, event: 'container_unloaded', date: SD.estDis, type: 'estimated', dataSource: 'shippeo' }));
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'container_unloaded', date: SD.estDis, type: 'estimated', dataSource: 'shippeo' }));
       });
       test.beforeEach(() => { if (!otu) test.skip(); });
       test('NEW-P-12 | predictedDischargeTsp1 = local time', () => { expect(otu?.predictedDischargeTsp1).toBe(toLocalTime(SD.estDis, tsp.timezone)); });
@@ -901,7 +915,7 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
       test.beforeAll(async () => {
         tsp = pickTsp(); vessel = pickVesselNew();
         const r = await createTspOtu(ref);
-        ({ otu } = await sendTspEvent(ref, r.code, { tsp, vessel, event: 'container_loaded', date: SD.estLd, type: 'estimated', dataSource: 'external' }));
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'container_loaded', date: SD.estLd, type: 'estimated', dataSource: 'external' }));
       });
       test.beforeEach(() => { if (!otu) test.skip(); });
       test('NEW-P-13 | estimatedLoadTsp1 = local time', () => { expect(otu?.estimatedLoadTsp1).toBe(toLocalTime(SD.estLd, tsp.timezone)); });
@@ -916,7 +930,7 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
       test.beforeAll(async () => {
         tsp = pickTsp(); vessel = pickVesselNew();
         const r = await createTspOtu(ref);
-        ({ otu } = await sendTspEvent(ref, r.code, { tsp, vessel, event: 'container_loaded', date: SD.estLd, type: 'estimated', dataSource: 'shippeo' }));
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'container_loaded', date: SD.estLd, type: 'estimated', dataSource: 'shippeo' }));
       });
       test.beforeEach(() => { if (!otu) test.skip(); });
       test('NEW-P-14 | predictedLoadTsp1 = local time', () => { expect(otu?.predictedLoadTsp1).toBe(toLocalTime(SD.estLd, tsp.timezone)); });
@@ -929,7 +943,7 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
       test.beforeAll(async () => {
         tsp = pickTsp(); vessel = pickVesselNew();
         const r = await createTspOtu(ref);
-        ({ otu } = await sendTspEvent(ref, r.code, { tsp, vessel, event: 'container_departed', date: SD.estDep, type: 'estimated', dataSource: 'external' }));
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'container_departed', date: SD.estDep, type: 'estimated', dataSource: 'external' }));
       });
       test.beforeEach(() => { if (!otu) test.skip(); });
       test('NEW-P-15 | estimatedDepartureTsp1 = local time', () => { expect(otu?.estimatedDepartureTsp1).toBe(toLocalTime(SD.estDep, tsp.timezone)); });
@@ -942,7 +956,7 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
       test.beforeAll(async () => {
         tsp = pickTsp(); vessel = pickVesselNew();
         const r = await createTspOtu(ref);
-        ({ otu } = await sendTspEvent(ref, r.code, { tsp, vessel, event: 'container_departed', date: SD.estDep, type: 'estimated', dataSource: 'shippeo' }));
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'container_departed', date: SD.estDep, type: 'estimated', dataSource: 'shippeo' }));
       });
       test.beforeEach(() => { if (!otu) test.skip(); });
       test('NEW-P-16 | predictedDepartureTsp1 = local time', () => { expect(otu?.predictedDepartureTsp1).toBe(toLocalTime(SD.estDep, tsp.timezone)); });
@@ -955,9 +969,9 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
       test.beforeAll(async () => {
         tsp = pickTsp(); vessel = pickVesselNew();
         const r = await createTspOtu(ref);
-        await sendTspEvent(ref, r.code, { tsp, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual',    dataSource: null });
-        await sendTspEvent(ref, r.code, { tsp, vessel, event: 'container_arrived', date: SD.estArr,  type: 'estimated', dataSource: 'external' });
-        ({ otu } = await sendTspEvent(ref, r.code, { tsp, vessel, event: 'container_arrived', date: SD.predArr, type: 'estimated', dataSource: 'shippeo' }));
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual',    dataSource: null });
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'container_arrived', date: SD.estArr,  type: 'estimated', dataSource: 'external' });
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'container_arrived', date: SD.predArr, type: 'estimated', dataSource: 'shippeo' }));
       });
       test.beforeEach(() => { if (!otu) test.skip(); });
       test('NEW-P-17 | actualArrivalTsp1 set', () => { expect(otu?.actualArrivalTsp1).toBe(toLocalTime(SD.arrTsp1, tsp.timezone)); });
@@ -1010,8 +1024,8 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
       test.beforeAll(async () => {
         tsp = pickTsp(); vessel1 = pickVesselNew(); vessel2 = pickVesselNew(vessel1.imo);
         const r = await createTspOtu(ref);
-        await sendTspEvent(ref, r.code, { tsp, vessel: vessel1, event: 'container_arrived', date: SD.arrTsp1 });
-        ({ otu } = await sendTspEvent(ref, r.code, { tsp, vessel: vessel2, event: 'container_arrived', date: SD.t2 }));
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel: vessel1, event: 'container_arrived', date: SD.arrTsp1 });
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel: vessel2, event: 'container_arrived', date: SD.t2 }));
       });
       test.beforeEach(() => { if (!otu) test.skip(); });
       test('NEW-V-03 | leg1VesselImoNumber updated to vessel2', () => { expect(otu?.leg1VesselImoNumber).toBe(vessel2.imo); });
@@ -1024,8 +1038,8 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
       test.beforeAll(async () => {
         tsp = pickTsp(); vessel1 = pickVesselNew(); vessel2 = pickVesselNew(vessel1.imo);
         const r = await createTspOtu(ref);
-        await sendTspEvent(ref, r.code, { tsp, vessel: vessel1, event: 'container_departed', date: SD.depTsp1 });
-        ({ otu } = await sendTspEvent(ref, r.code, { tsp, vessel: vessel2, event: 'container_departed', date: SD.t2 }));
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel: vessel1, event: 'container_departed', date: SD.depTsp1 });
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel: vessel2, event: 'container_departed', date: SD.t2 }));
       });
       test.beforeEach(() => { if (!otu) test.skip(); });
       test('NEW-V-04 | leg2VesselImoNumber updated to vessel2', () => { expect(otu?.leg2VesselImoNumber).toBe(vessel2.imo); });
@@ -1076,7 +1090,7 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
       test.beforeAll(async () => {
         tsp = pickTsp();
         const r = await createTspOtu(ref);
-        ({ otu } = await sendTspEvent(ref, r.code, { tsp, event: 'container_arrived', date: SD.arrTsp1, resources: [] }));
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, event: 'container_arrived', date: SD.arrTsp1, resources: [] }));
       });
       test.beforeEach(() => { if (!otu) test.skip(); });
       test('NEW-V-07 | leg1VesselImoNumber null', () => { expect(otu?.leg1VesselImoNumber ?? null).toBeNull(); });
@@ -1092,7 +1106,7 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
       test.beforeAll(async () => {
         tsp = pickTsp(); const vessel = pickVesselNew();
         const r = await createTspOtu(ref);
-        ({ otu } = await sendTspEvent(ref, r.code, { tsp, vessel, event: 'container_arrived', date: utcDate }));
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'container_arrived', date: utcDate }));
       });
       test.beforeEach(() => { if (!otu) test.skip(); });
       test('NEW-TZ-01 | actualArrivalTsp1 = UTC converted to local time', () => {
@@ -1106,7 +1120,7 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
       test.beforeAll(async () => {
         tsp = pickTsp(); const vessel = pickVesselNew();
         const r = await createTspOtu(ref);
-        ({ otu } = await sendTspEvent(ref, r.code, { tsp, vessel, event: 'container_arrived', date: utcDate }));
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'container_arrived', date: utcDate }));
       });
       test.beforeEach(() => { if (!otu) test.skip(); });
       test('NEW-TZ-02 | actualArrivalTsp1 = correct local time', () => {
@@ -1144,7 +1158,7 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
       test.beforeAll(async () => {
         tsp = pickTsp(); const vessel = pickVesselNew();
         const r = await createTspOtu(ref);
-        ({ otu } = await sendTspEvent(ref, r.code, { tsp, vessel, event: 'container_arrived', date: SD.arrTsp1 }));
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'container_arrived', date: SD.arrTsp1 }));
       });
       test.beforeEach(() => { if (!otu) test.skip(); });
       test('NEW-TZ-05 | datetime_timezone not present in BE response', () => {
@@ -1160,7 +1174,7 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
     test('NEW-N-01 | place_type not transhipment → TSP logic skipped', async () => {
       const ref = generateContainerRef(); const tsp = pickTsp(); const vessel = pickVesselNew();
       const r = await createTspOtu(ref);
-      const { otu } = await sendTspEvent(ref, r.code, { tsp, vessel, event: 'container_arrived', date: SD.arrTsp1, placeType: 'loading' });
+      const { otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'container_arrived', date: SD.arrTsp1, placeType: 'loading' });
       expect(otu?.tsp1Locode ?? null).toBeNull();
       expect(otu?.actualArrivalTsp1 ?? null).toBeNull();
     });
@@ -1168,7 +1182,7 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
     test('NEW-N-02 | actual + data_source: "external" → date NOT written', async () => {
       const ref = generateContainerRef(); const tsp = pickTsp(); const vessel = pickVesselNew();
       const r = await createTspOtu(ref);
-      const { otu } = await sendTspEvent(ref, r.code, { tsp, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: 'external' });
+      const { otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: 'external' });
       expect(otu?.actualArrivalTsp1 ?? null).toBeNull();
       expect(otu?.estimatedArrivalTsp1 ?? null).toBeNull();
       expect(otu?.tsp1Locode).toBe(tsp.unlocode);
@@ -1177,7 +1191,7 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
     test('NEW-N-03 | actual + data_source: "shippeo" → date NOT written', async () => {
       const ref = generateContainerRef(); const tsp = pickTsp(); const vessel = pickVesselNew();
       const r = await createTspOtu(ref);
-      const { otu } = await sendTspEvent(ref, r.code, { tsp, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: 'shippeo' });
+      const { otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: 'shippeo' });
       expect(otu?.actualArrivalTsp1 ?? null).toBeNull();
       expect(otu?.predictedArrivalTsp1 ?? null).toBeNull();
       expect(otu?.tsp1Locode).toBe(tsp.unlocode);
@@ -1186,7 +1200,7 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
     test('NEW-N-04 | estimated + data_source absent/null → date NOT written · locode still claimed', async () => {
       const ref = generateContainerRef(); const tsp = pickTsp(); const vessel = pickVesselNew();
       const r = await createTspOtu(ref);
-      const { otu } = await sendTspEvent(ref, r.code, { tsp, vessel, event: 'container_arrived', date: SD.estArr, type: 'estimated', dataSource: null });
+      const { otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'container_arrived', date: SD.estArr, type: 'estimated', dataSource: null });
       expect(otu?.estimatedArrivalTsp1 ?? null).toBeNull();
       expect(otu?.predictedArrivalTsp1 ?? null).toBeNull();
       expect(otu?.actualArrivalTsp1 ?? null).toBeNull();
@@ -1196,7 +1210,7 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
     test('NEW-N-05 | estimated + data_source: "carrier" → date NOT written', async () => {
       const ref = generateContainerRef(); const tsp = pickTsp(); const vessel = pickVesselNew();
       const r = await createTspOtu(ref);
-      const { otu } = await sendTspEvent(ref, r.code, { tsp, vessel, event: 'container_arrived', date: SD.estArr, type: 'estimated', dataSource: 'carrier' });
+      const { otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'container_arrived', date: SD.estArr, type: 'estimated', dataSource: 'carrier' });
       expect(otu?.estimatedArrivalTsp1 ?? null).toBeNull();
       expect(otu?.predictedArrivalTsp1 ?? null).toBeNull();
     });
@@ -1204,7 +1218,7 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
     test('NEW-N-07 | event_site.unlocode null → no slot assigned · nothing written', async () => {
       const ref = generateContainerRef(); const tsp = pickTsp(); const vessel = pickVesselNew();
       const r = await createTspOtu(ref);
-      const { otu } = await sendTspEvent(ref, r.code, { tsp, vessel, event: 'container_arrived', date: SD.arrTsp1, unlocode: null });
+      const { otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'container_arrived', date: SD.arrTsp1, unlocode: null });
       expect(otu?.tsp1Locode ?? null).toBeNull();
       expect(otu?.actualArrivalTsp1 ?? null).toBeNull();
     });
@@ -1212,7 +1226,7 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
     test('NEW-N-08 | situation.date null → date not written · locode still claimed', async () => {
       const ref = generateContainerRef(); const tsp = pickTsp(); const vessel = pickVesselNew();
       const r = await createTspOtu(ref);
-      const { otu } = await sendTspEvent(ref, r.code, { tsp, vessel, event: 'container_arrived', date: null });
+      const { otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'container_arrived', date: null });
       expect(otu?.tsp1Locode).toBe(tsp.unlocode);
       expect(otu?.actualArrivalTsp1 ?? null).toBeNull();
     });
@@ -1220,7 +1234,7 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
     test('NEW-N-09 | event_site.timezone missing → date stored as UTC (no conversion)', async () => {
       const ref = generateContainerRef(); const tsp = pickTsp(); const vessel = pickVesselNew();
       const r = await createTspOtu(ref);
-      const { otu } = await sendTspEvent(ref, r.code, { tsp, vessel, event: 'container_arrived', date: SD.arrTsp1, timezone: undefined });
+      const { otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'container_arrived', date: SD.arrTsp1, timezone: undefined });
       const stored = otu?.actualArrivalTsp1;
       // When no timezone, stored as UTC — should not equal any local time conversion
       expect(stored).toBeTruthy();
@@ -1229,7 +1243,7 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
     test('NEW-N-11 | event_site.timezone invalid → dates remain in UTC', async () => {
       const ref = generateContainerRef(); const tsp = pickTsp(); const vessel = pickVesselNew();
       const r = await createTspOtu(ref);
-      const { otu } = await sendTspEvent(ref, r.code, { tsp, vessel, event: 'container_arrived', date: SD.arrTsp1, timezone: 'Mars/Olympus' });
+      const { otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'container_arrived', date: SD.arrTsp1, timezone: 'Mars/Olympus' });
       // Should not crash
       expect(otu?.tsp1Locode).toBe(tsp.unlocode);
     });
@@ -1287,8 +1301,8 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
       test.beforeAll(async () => {
         tsp = pickTsp(); vessel = pickVesselNew();
         const r = await createTspOtu(ref);
-        await sendTspEvent(ref, r.code, { tsp, vessel, event: 'container_arrived', date: T1 });
-        ({ otu } = await sendTspEvent(ref, r.code, { tsp, vessel, event: 'container_arrived', date: T2 }));
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'container_arrived', date: T1 });
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'container_arrived', date: T2 }));
       });
       test.beforeEach(() => { if (!otu) test.skip(); });
       test('NEW-E-01 | tsp1Locode reused (Pass 1)', () => { expect(otu?.tsp1Locode).toBe(tsp.unlocode); });
@@ -1302,8 +1316,8 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
       test.beforeAll(async () => {
         tsp = pickTsp(); vessel = pickVesselNew();
         const r = await createTspOtu(ref);
-        await sendTspEvent(ref, r.code, { tsp, vessel, event: 'container_arrived', date: T1 });
-        ({ otu } = await sendTspEvent(ref, r.code, { tsp, vessel, event: 'container_arrived', date: T2 }));
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'container_arrived', date: T1 });
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'container_arrived', date: T2 }));
       });
       test.beforeEach(() => { if (!otu) test.skip(); });
       test('NEW-E-02 | actualArrivalTsp1 = original date T1 (earlier T2 not stored)', () => {
@@ -1317,10 +1331,10 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
       test.beforeAll(async () => {
         tsp = pickTsp(); vessel = pickVesselNew();
         const r = await createTspOtu(ref);
-        await sendTspEvent(ref, r.code, { tsp, vessel, event: 'container_arrived',  date: T1 });
-        await sendTspEvent(ref, r.code, { tsp, vessel, event: 'container_unloaded', date: T2 });
-        await sendTspEvent(ref, r.code, { tsp, vessel, event: 'container_loaded',   date: T3 });
-        ({ otu } = await sendTspEvent(ref, r.code, { tsp, vessel, event: 'container_departed', date: T4 }));
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'container_arrived',  date: T1 });
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'container_unloaded', date: T2 });
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'container_loaded',   date: T3 });
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'container_departed', date: T4 }));
       });
       test.beforeEach(() => { if (!otu) test.skip(); });
       test('NEW-E-06 | actualArrivalTsp1 = T1', () => { expect(otu?.actualArrivalTsp1).toBe(toLocalTime(T1, tsp.timezone)); });
@@ -1336,8 +1350,8 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
       test.beforeAll(async () => {
         tsp = pickTsp(); vessel = pickVesselNew();
         const r = await createTspOtu(ref);
-        await sendTspEvent(ref, r.code, { tsp, vessel, event: 'container_arrived', date: T1, type: 'estimated', dataSource: 'external' });
-        ({ otu } = await sendTspEvent(ref, r.code, { tsp, vessel, event: 'container_arrived', date: T2, type: 'actual', dataSource: null }));
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'container_arrived', date: T1, type: 'estimated', dataSource: 'external' });
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'container_arrived', date: T2, type: 'actual', dataSource: null }));
       });
       test.beforeEach(() => { if (!otu) test.skip(); });
       test('NEW-E-09 | estimatedArrivalTsp1 not overwritten by actual', () => { expect(otu?.estimatedArrivalTsp1).toBe(toLocalTime(T1, tsp.timezone)); });
@@ -1351,8 +1365,8 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
       test.beforeAll(async () => {
         tsp = pickTsp(); vessel1 = pickVesselNew(); vessel2 = pickVesselNew(vessel1.imo);
         const r = await createTspOtu(ref);
-        await sendTspEvent(ref, r.code, { tsp, vessel: vessel1, event: 'container_arrived', date: SD.arrTsp1 });
-        ({ otu } = await sendTspEvent(ref, r.code, { tsp, vessel: vessel2, event: 'container_loaded', date: SD.ldTsp1 }));
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel: vessel1, event: 'container_arrived', date: SD.arrTsp1 });
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel: vessel2, event: 'container_loaded', date: SD.ldTsp1 }));
       });
       test.beforeEach(() => { if (!otu) test.skip(); });
       test('NEW-E-14 | tsp1Locode reused (same port)', () => { expect(otu?.tsp1Locode).toBe(tsp.unlocode); });
@@ -1368,8 +1382,8 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
       test.beforeAll(async () => {
         tsp = pickTsp(); vessel1 = pickVesselNew(); vessel2 = pickVesselNew(vessel1.imo);
         const r = await createTspOtu(ref);
-        await sendTspEvent(ref, r.code, { tsp, vessel: vessel1, event: 'container_arrived', date: SD.arrTsp1 });
-        ({ otu } = await sendTspEvent(ref, r.code, { tsp, vessel: vessel2, event: 'container_arrived', date: SD.t2 }));
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel: vessel1, event: 'container_arrived', date: SD.arrTsp1 });
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel: vessel2, event: 'container_arrived', date: SD.t2 }));
       });
       test.beforeEach(() => { if (!otu) test.skip(); });
       test('NEW-X-02 | tsp1Locode reused (locode is key — not vessel)', () => { expect(otu?.tsp1Locode).toBe(tsp.unlocode); });
@@ -1382,7 +1396,7 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
       test.beforeAll(async () => {
         tsp = pickTsp(); vessel = pickVesselNew();
         const r = await createTspOtu(ref);
-        ({ otu } = await sendTspEvent(ref, r.code, { tsp, vessel, event: 'container_loaded', date: SD.ldTsp1 }));
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'container_loaded', date: SD.ldTsp1 }));
       });
       test.beforeEach(() => { if (!otu) test.skip(); });
       test('NEW-X-03 | leg2VesselImoNumber = vessel (N+1=2 — new flow INCREMENT)', () => { expect(otu?.leg2VesselImoNumber).toBe(vessel.imo); });
@@ -1394,7 +1408,7 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
       test.beforeAll(async () => {
         tsp = pickTsp(); vessel = pickVesselNew();
         const r = await createTspOtu(ref);
-        ({ otu } = await sendTspEvent(ref, r.code, { tsp, vessel, event: 'container_departed', date: SD.depTsp1 }));
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'container_departed', date: SD.depTsp1 }));
       });
       test.beforeEach(() => { if (!otu) test.skip(); });
       test('NEW-X-04 | leg2VesselImoNumber = vessel (N+1=2)', () => { expect(otu?.leg2VesselImoNumber).toBe(vessel.imo); });
