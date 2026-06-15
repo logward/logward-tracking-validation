@@ -1,0 +1,1535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Ocean Orders-In Flow Report — 2026-06-11 12:28:53 UTC</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f2f5;color:#1a1a2e;font-size:13px;}
+
+    /* ── Header ── */
+    .hdr{background:linear-gradient(135deg,#1a1a2e,#0f3460);color:#fff;padding:28px 40px;}
+    .hdr h1{font-size:1.6rem;font-weight:700;}
+    .hdr .sub{color:#a0aec0;margin-top:4px;font-size:.85rem;}
+    .hdr .meta{display:flex;gap:32px;margin-top:16px;flex-wrap:wrap;}
+    .hdr .meta-item strong{display:block;font-size:.9rem;}
+    .hdr .meta-item{font-size:.78rem;color:#cbd5e0;}
+
+    /* ── Overall banner ── */
+    .overall{margin:20px 40px 0;padding:14px 20px;border-radius:8px;font-weight:600;display:flex;align-items:center;gap:10px;font-size:.95rem;}
+    .overall.ok{background:#f0fff4;border:1.5px solid #68d391;color:#276749;}
+    .overall.fail{background:#fff5f5;border:1.5px solid #fc8181;color:#9b2335;}
+
+    /* ── Group sections ── */
+    .group-section{margin:20px 40px 0;}
+    .group-header{background:#fff;border-radius:8px 8px 0 0;border:1px solid #e2e8f0;padding:12px 18px;display:flex;justify-content:space-between;align-items:center;}
+    .group-label{font-weight:700;font-size:.9rem;}
+    .group-counts{font-size:.8rem;color:#718096;}
+
+    /* ── Scenario card ── */
+    .scenario{background:#fff;border:1px solid #e2e8f0;border-top:none;padding:16px 18px;overflow:hidden;}
+    .scenario:last-child{border-radius:0 0 8px 8px;margin-bottom:20px;}
+    .scenario.pass{border-left:3px solid #68d391;}
+    .scenario.fail{border-left:3px solid #fc8181;}
+    .scenario.partial{border-left:3px solid #f6ad55;}
+    .scenario.skipped{border-left:3px solid #b794f4;}
+    .scenario.pending{border-left:3px solid #a0aec0;}
+
+    .scenario-header{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;}
+    .sid{font-weight:700;font-size:.85rem;background:#edf2f7;padding:2px 8px;border-radius:4px;white-space:nowrap;}
+    .stype{font-size:.75rem;padding:2px 8px;border-radius:10px;font-weight:600;white-space:nowrap;}
+    .stype.positive{background:#c6f6d5;color:#22543d;}
+    .stype.negative{background:#fed7d7;color:#9b2335;}
+    .stype.update{background:#bee3f8;color:#2a4365;}
+    .sgroup{font-size:.75rem;color:#718096;}
+    .sname{flex:1;font-weight:600;font-size:.88rem;}
+
+    .badge{padding:3px 10px;border-radius:12px;font-size:.72rem;font-weight:700;white-space:nowrap;}
+    .badge.pass{background:#c6f6d5;color:#22543d;}
+    .badge.fail{background:#fed7d7;color:#9b2335;}
+    .badge.pending{background:#e2e8f0;color:#4a5568;}
+    .badge.warn{background:#fefcbf;color:#744210;}
+    .badge.skip{background:#e9d8fd;color:#553c9a;}
+
+    /* ── Flow row ── */
+    .flow-row{display:flex;align-items:flex-start;gap:0;overflow-x:auto;padding-bottom:8px;}
+    .arrow{font-size:1.2rem;color:#68d391;padding:28px 6px 0;flex-shrink:0;font-weight:700;}
+    .arrow.dim{color:#cbd5e0;}
+
+    /* ── Step cards ── */
+    .step-card{border:1px solid #e2e8f0;border-radius:8px;min-width:190px;max-width:260px;width:260px;flex-shrink:0;overflow:hidden;}
+    .step-card.pass{border-color:#9ae6b4;}
+    .step-card.fail{border-color:#fc8181;}
+    .step-card.skip{border-color:#e2e8f0;opacity:.65;}
+    .step-card.pending{border-color:#e2e8f0;opacity:.5;}
+    .step-card.stop{border-color:#fc8181;}
+
+    .step-title{padding:8px 10px;font-weight:700;font-size:.78rem;border-bottom:1px solid #f7fafc;display:flex;align-items:center;gap:6px;}
+    .step-card.pass .step-title{background:#f0fff4;}
+    .step-card.fail .step-title{background:#fff5f5;}
+    .step-card.skip .step-title{background:#f7fafc;}
+    .step-card.pending .step-title{background:#f7fafc;}
+    .step-card.stop .step-title{background:#fff5f5;}
+
+    .step-body{padding:8px 10px;font-size:.75rem;}
+    .step-body table{width:100%;border-collapse:collapse;table-layout:fixed;}
+    .step-body td{padding:2px 0;vertical-align:top;word-break:break-word;overflow-wrap:anywhere;}
+    .step-body .lbl{color:#718096;white-space:normal;padding-right:6px;font-weight:600;width:88px;min-width:88px;}
+    .step-body .note{color:#a0aec0;font-size:.68rem;display:block;margin-top:1px;line-height:1.3;}
+    .stop-banner{background:#fff5f5;border:1px solid #fc8181;border-radius:4px;padding:6px 8px;color:#9b2335;font-size:.75rem;margin-top:6px;font-weight:600;}
+    .dim{color:#a0aec0;font-size:.78rem;font-style:italic;}
+    .ico{font-size:.85rem;}
+    .ico.pass{color:#38a169;}
+    .ico.fail{color:#e53e3e;}
+    .ico.skip{color:#a0aec0;}
+    .ico.stop{color:#e53e3e;}
+    .ico.pending{color:#a0aec0;}
+
+    /* ── Footer ── */
+    .footer{text-align:center;padding:20px;font-size:.75rem;color:#a0aec0;margin-bottom:20px;}
+  </style>
+</head>
+<body>
+
+<div class="hdr">
+  <h1>🌊 Ocean Orders-In — Full Flow Report</h1>
+  <p class="sub">Step-by-step verification: Create → Scheduler → MongoDB → Shippeo → Events</p>
+  <div class="meta">
+    <div class="meta-item"><strong>2026-06-11 12:28:53 UTC</strong>Generated At</div>
+    <div class="meta-item"><strong>QA</strong>Environment</div>
+    <div class="meta-item"><strong>21</strong>Total Scenarios</div>
+    <div class="meta-item"><strong style="color:#9ae6b4">6</strong>Passed</div>
+    <div class="meta-item"><strong style="color:#fc8181">0</strong>Failed</div>
+    
+    
+  </div>
+</div>
+
+<div class="overall ok">
+  <span>✅</span>
+  <span>Orders-In ALL PASSED —
+    6 passed
+    
+    
+    
+    of 21 total
+  </span>
+</div>
+
+
+      <div class="group-section">
+        <div class="group-header">
+          <span class="group-label">🟢 Full Positive Flow (S-01 to S-03)</span>
+          <span class="group-counts"> · 3 total</span>
+        </div>
+        
+  <div class="scenario pending">
+    <div class="scenario-header">
+      <div class="scenario-meta">
+        <span class="sid">S-01</span>
+        <span class="stype positive">Full Flow</span>
+        <span class="sgroup">GROUP P</span>
+      </div>
+      <div class="sname">BN + BL + CN + SCAC + InProgress</div>
+      <span class="badge pending">PENDING</span>
+    </div>
+    <div class="flow-row">
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 1. Create OTU</div>
+      <div class="step-body"><table>
+    
+    
+    <tr><td class="lbl">Booking No.</td><td>—</td></tr>
+    <tr><td class="lbl">Bill of Lading</td><td>—</td></tr>
+    <tr><td class="lbl">SCAC</td><td>—</td></tr>
+    <tr><td class="lbl">Status</td><td>—</td></tr>
+    
+  </table></div>
+    </div>
+      <div class="arrow dim">→</div>
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 2. Scheduler Check</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+      <div class="arrow dim">→</div>
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 3. MongoDB Check</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+      <div class="arrow dim">→</div>
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 4. Shippeo Check</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+      <div class="arrow dim">→</div>
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 5. Events → OTU Fields</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+    </div>
+  </div>
+
+  <div class="scenario pending">
+    <div class="scenario-header">
+      <div class="scenario-meta">
+        <span class="sid">S-02</span>
+        <span class="stype positive">Full Flow</span>
+        <span class="sgroup">GROUP P</span>
+      </div>
+      <div class="sname">BN + CN + SCAC + InProgress (no BL)</div>
+      <span class="badge pending">PENDING</span>
+    </div>
+    <div class="flow-row">
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 1. Create OTU</div>
+      <div class="step-body"><table>
+    
+    
+    <tr><td class="lbl">Booking No.</td><td>—</td></tr>
+    <tr><td class="lbl">Bill of Lading</td><td>—</td></tr>
+    <tr><td class="lbl">SCAC</td><td>—</td></tr>
+    <tr><td class="lbl">Status</td><td>—</td></tr>
+    
+  </table></div>
+    </div>
+      <div class="arrow dim">→</div>
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 2. Scheduler Check</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+      <div class="arrow dim">→</div>
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 3. MongoDB Check</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+      <div class="arrow dim">→</div>
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 4. Shippeo Check</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+      <div class="arrow dim">→</div>
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 5. Events → OTU Fields</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+    </div>
+  </div>
+
+  <div class="scenario pending">
+    <div class="scenario-header">
+      <div class="scenario-meta">
+        <span class="sid">S-03</span>
+        <span class="stype positive">Full Flow</span>
+        <span class="sgroup">GROUP P</span>
+      </div>
+      <div class="sname">BL + CN + SCAC + InProgress (no BN)</div>
+      <span class="badge pending">PENDING</span>
+    </div>
+    <div class="flow-row">
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 1. Create OTU</div>
+      <div class="step-body"><table>
+    
+    
+    <tr><td class="lbl">Booking No.</td><td>—</td></tr>
+    <tr><td class="lbl">Bill of Lading</td><td>—</td></tr>
+    <tr><td class="lbl">SCAC</td><td>—</td></tr>
+    <tr><td class="lbl">Status</td><td>—</td></tr>
+    
+  </table></div>
+    </div>
+      <div class="arrow dim">→</div>
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 2. Scheduler Check</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+      <div class="arrow dim">→</div>
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 3. MongoDB Check</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+      <div class="arrow dim">→</div>
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 4. Shippeo Check</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+      <div class="arrow dim">→</div>
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 5. Events → OTU Fields</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+    </div>
+  </div>
+      </div>
+      <div class="group-section">
+        <div class="group-header">
+          <span class="group-label">🔄 Update Scenarios (S-18 to S-23)</span>
+          <span class="group-counts">6 passed · 6 total</span>
+        </div>
+        
+  <div class="scenario pass">
+    <div class="scenario-header">
+      <div class="scenario-meta">
+        <span class="sid">S-18</span>
+        <span class="stype update">Update Flow</span>
+        <span class="sgroup">GROUP U</span>
+      </div>
+      <div class="sname">CN+SCAC+InProgress → add BN → valid=1</div>
+      <span class="badge pass">PASSED</span>
+    </div>
+    <div class="flow-row">
+      
+    <div class="step-card pass">
+      <div class="step-title"><span class="ico pass">✅</span> 1. Create OTU</div>
+      <div class="step-body"><table>
+    <tr><td class="lbl">Object Code</td><td>a12ed6027666 <span class="note">Logward internal ID</span></td></tr>
+    <tr><td class="lbl">Container No.</td><td>LGTE0146216</td></tr>
+    <tr><td class="lbl">Booking No.</td><td>—</td></tr>
+    <tr><td class="lbl">Bill of Lading</td><td>—</td></tr>
+    <tr><td class="lbl">SCAC</td><td>HLCU</td></tr>
+    <tr><td class="lbl">Status</td><td>In Progress</td></tr>
+    <tr><td class="lbl">HTTP Response</td><td>200 OK</td></tr>
+  </table></div>
+    </div>
+      <div class="arrow ">→</div>
+    <div class="step-card pass">
+      <div class="step-title"><span class="ico pass">✅</span> 2. Scheduler (before update)</div>
+      <div class="step-body"><table>
+      <tr><td class="lbl">active</td><td>1 <span class="note">✅ ATC conditions satisfied</span></td></tr>
+      <tr><td class="lbl">valid</td><td>0 <span class="note">❌ Required fields missing</span></td></tr>
+    </table><div class="stop-banner">⛔ FLOW STOPPED — No Shippeo order will be created</div></div>
+    </div><div class="arrow ">→</div>
+    <div class="step-card pass">
+      <div class="step-title"><span class="ico pass">✅</span> 3. OTU Update</div>
+      <div class="step-body"><table><tr><td class="lbl">bookingNumber</td><td>E2EBOOK046195 <span class="note">→ field added/updated</span></td></tr></table></div>
+    </div><div class="arrow ">→</div>
+    <div class="step-card pass">
+      <div class="step-title"><span class="ico pass">✅</span> 4. Scheduler (after update)</div>
+      <div class="step-body"><table>
+      <tr><td class="lbl">active</td><td>1 <span class="note">✅ ATC conditions satisfied</span></td></tr>
+      <tr><td class="lbl">valid</td><td>1 <span class="note">✅ All required tracking fields present</span></td></tr>
+    </table></div>
+    </div>
+      <div class="arrow ">→</div>
+      
+    <div class="step-card pass">
+      <div class="step-title"><span class="ico pass">✅</span> 4. MongoDB Check</div>
+      <div class="step-body"><table>
+        <tr><td class="lbl">Document found</td><td>Yes <span class="note">✅</span></td></tr>
+        <tr><td class="lbl">error field</td><td>false <span class="note">✅ Shippeo order created successfully</span></td></tr>
+        <tr><td class="lbl">containerId</td><td>LGTE0146216</td></tr>
+        <tr><td class="lbl">uniqueReference</td><td>E2EBOOK046195_LGTE0146216 <span class="note">Format: bookingId_containerId or blId_containerId</span></td></tr>
+        <tr><td class="lbl">serviceProvider</td><td>SHIPPEO</td></tr>
+        <tr><td class="lbl">identifier</td><td>bookingId <span class="note">Which field Shippeo uses as primary key</span></td></tr>
+        <tr><td class="lbl">events at creation</td><td>0 <span class="note">Should be 0 — no events received yet</span></td></tr>
+      </table></div>
+    </div>
+      <div class="arrow ">→</div>
+      
+    <div class="step-card pass">
+      <div class="step-title"><span class="ico pass">✅</span> 5. Shippeo Check</div>
+      <div class="step-body"><table>
+        <tr><td class="lbl">Shipment found</td><td>Yes <span class="note">✅</span></td></tr>
+        <tr><td class="lbl">Order ID</td><td>144809884</td></tr>
+        <tr><td class="lbl">Reference</td><td>E2EBOOK046195_LGTE0146216</td></tr>
+        <tr><td class="lbl">Organisation</td><td>Lidl_Test</td></tr>
+        <tr><td class="lbl">Agency</td><td>Lidl Ocean_Test</td></tr>
+        <tr><td class="lbl">Transport Mode</td><td>ocean</td></tr>
+      </table>
+        <div style="margin-top:8px;font-weight:700;font-size:.75rem;color:#4a5568;">
+          Order Details Validation ✅
+        </div>
+        <table style="margin-top:4px;">
+          <tr>
+              <td class="lbl">container.reference</td>
+              <td style="">✅ LGTE0146216</td>
+            </tr><tr>
+              <td class="lbl">cargo.reference</td>
+              <td style="">✅ LGTE0146216</td>
+            </tr><tr>
+              <td class="lbl">scacAtCreation</td>
+              <td style="">✅ HLCU</td>
+            </tr><tr>
+              <td class="lbl">oceanCarrier.scacList</td>
+              <td style="">✅ HLCU, HLUS, UASC, DAYU, NSLU, CHIW, NIDU</td>
+            </tr><tr>
+              <td class="lbl">oceanCarrier.name</td>
+              <td style="">✅ Hapag-Lloyd</td>
+            </tr><tr>
+              <td class="lbl">bookingReferenceList</td>
+              <td style="">✅ E2EBOOK046195</td>
+            </tr><tr>
+                <td class="lbl" style="color:#a0aec0">billOfLadingList</td>
+                <td style="color:#a0aec0;font-style:italic">skipped — no BL on this scenario</td>
+              </tr>
+        </table></div>
+    </div>
+      <div class="arrow ">→</div>
+      
+    <div class="step-card pass">
+      <div class="step-title"><span class="ico pass">✅</span> 6. Events → OTU Fields</div>
+      <div class="step-body"><table>
+      <tr><td class="lbl">Event 1 — Pre-Carriage</td><td>2026-06-11 20:54:06 <span class="note">container_gate_out_empty → actualGateOutEmptyDepot</span></td></tr>
+      <tr><td class="lbl">Event 2 — POL Departure</td><td>2026-06-12 06:24:06 <span class="note">container_departed → actualDeparturePol</span></td></tr>
+      <tr><td class="lbl">Event 3 — POD Arrival</td><td>2026-06-12 16:24:06 <span class="note">container_arrived (discharge) → actualArrivalPod</span></td></tr>
+      <tr><td class="lbl">Event 4 — Delivery</td><td>2026-06-13 05:24:06 <span class="note">container_arrived (destination) → actualArrivalDestination</span></td></tr>
+    </table></div>
+    </div>
+    </div>
+  </div>
+
+  <div class="scenario pass">
+    <div class="scenario-header">
+      <div class="scenario-meta">
+        <span class="sid">S-19</span>
+        <span class="stype update">Update Flow</span>
+        <span class="sgroup">GROUP U</span>
+      </div>
+      <div class="sname">CN+SCAC+InProgress → add BL → valid=1</div>
+      <span class="badge pass">PASSED</span>
+    </div>
+    <div class="flow-row">
+      
+    <div class="step-card pass">
+      <div class="step-title"><span class="ico pass">✅</span> 1. Create OTU</div>
+      <div class="step-body"><table>
+    <tr><td class="lbl">Object Code</td><td>4aaf49903240 <span class="note">Logward internal ID</span></td></tr>
+    <tr><td class="lbl">Container No.</td><td>LGTE0283288</td></tr>
+    <tr><td class="lbl">Booking No.</td><td>—</td></tr>
+    <tr><td class="lbl">Bill of Lading</td><td>—</td></tr>
+    <tr><td class="lbl">SCAC</td><td>MAEU</td></tr>
+    <tr><td class="lbl">Status</td><td>In Progress</td></tr>
+    <tr><td class="lbl">HTTP Response</td><td>200 OK</td></tr>
+  </table></div>
+    </div>
+      <div class="arrow ">→</div>
+    <div class="step-card pass">
+      <div class="step-title"><span class="ico pass">✅</span> 2. Scheduler (before update)</div>
+      <div class="step-body"><table>
+      <tr><td class="lbl">active</td><td>1 <span class="note">✅ ATC conditions satisfied</span></td></tr>
+      <tr><td class="lbl">valid</td><td>0 <span class="note">❌ Required fields missing</span></td></tr>
+    </table><div class="stop-banner">⛔ FLOW STOPPED — No Shippeo order will be created</div></div>
+    </div><div class="arrow ">→</div>
+    <div class="step-card pass">
+      <div class="step-title"><span class="ico pass">✅</span> 3. OTU Update</div>
+      <div class="step-body"><table><tr><td class="lbl">billOfLadingNumber</td><td>E2EBL056195 <span class="note">→ field added/updated</span></td></tr></table></div>
+    </div><div class="arrow ">→</div>
+    <div class="step-card pass">
+      <div class="step-title"><span class="ico pass">✅</span> 4. Scheduler (after update)</div>
+      <div class="step-body"><table>
+      <tr><td class="lbl">active</td><td>1 <span class="note">✅ ATC conditions satisfied</span></td></tr>
+      <tr><td class="lbl">valid</td><td>1 <span class="note">✅ All required tracking fields present</span></td></tr>
+    </table></div>
+    </div>
+      <div class="arrow ">→</div>
+      
+    <div class="step-card pass">
+      <div class="step-title"><span class="ico pass">✅</span> 4. MongoDB Check</div>
+      <div class="step-body"><table>
+        <tr><td class="lbl">Document found</td><td>Yes <span class="note">✅</span></td></tr>
+        <tr><td class="lbl">error field</td><td>false <span class="note">✅ Shippeo order created successfully</span></td></tr>
+        <tr><td class="lbl">containerId</td><td>LGTE0283288</td></tr>
+        <tr><td class="lbl">uniqueReference</td><td>E2EBL056195_LGTE0283288 <span class="note">Format: bookingId_containerId or blId_containerId</span></td></tr>
+        <tr><td class="lbl">serviceProvider</td><td>SHIPPEO</td></tr>
+        <tr><td class="lbl">identifier</td><td>billOfLadingId <span class="note">Which field Shippeo uses as primary key</span></td></tr>
+        <tr><td class="lbl">events at creation</td><td>0 <span class="note">Should be 0 — no events received yet</span></td></tr>
+      </table></div>
+    </div>
+      <div class="arrow ">→</div>
+      
+    <div class="step-card pass">
+      <div class="step-title"><span class="ico pass">✅</span> 5. Shippeo Check</div>
+      <div class="step-body"><table>
+        <tr><td class="lbl">Shipment found</td><td>Yes <span class="note">✅</span></td></tr>
+        <tr><td class="lbl">Order ID</td><td>144810093</td></tr>
+        <tr><td class="lbl">Reference</td><td>E2EBL056195_LGTE0283288</td></tr>
+        <tr><td class="lbl">Organisation</td><td>Lidl_Test</td></tr>
+        <tr><td class="lbl">Agency</td><td>Lidl Ocean_Test</td></tr>
+        <tr><td class="lbl">Transport Mode</td><td>ocean</td></tr>
+      </table>
+        <div style="margin-top:8px;font-weight:700;font-size:.75rem;color:#4a5568;">
+          Order Details Validation ✅
+        </div>
+        <table style="margin-top:4px;">
+          <tr>
+              <td class="lbl">container.reference</td>
+              <td style="">✅ LGTE0283288</td>
+            </tr><tr>
+              <td class="lbl">cargo.reference</td>
+              <td style="">✅ LGTE0283288</td>
+            </tr><tr>
+              <td class="lbl">scacAtCreation</td>
+              <td style="">✅ MAEU</td>
+            </tr><tr>
+              <td class="lbl">oceanCarrier.scacList</td>
+              <td style="">✅ MAEU, MAEI, SEAU, MCCQ, MCPU, SEJJ, SUDU, SAFM, CNIU</td>
+            </tr><tr>
+              <td class="lbl">oceanCarrier.name</td>
+              <td style="">✅ Maersk</td>
+            </tr><tr>
+                <td class="lbl" style="color:#a0aec0">bookingReferenceList</td>
+                <td style="color:#a0aec0;font-style:italic">skipped — no BN on this scenario</td>
+              </tr><tr>
+              <td class="lbl">billOfLadingList</td>
+              <td style="">✅ E2EBL056195</td>
+            </tr>
+        </table></div>
+    </div>
+      <div class="arrow ">→</div>
+      
+    <div class="step-card pass">
+      <div class="step-title"><span class="ico pass">✅</span> 6. Events → OTU Fields</div>
+      <div class="step-body"><table>
+      <tr><td class="lbl">Event 1 — Pre-Carriage</td><td>2026-06-11 20:54:06 <span class="note">container_gate_out_empty → actualGateOutEmptyDepot</span></td></tr>
+      <tr><td class="lbl">Event 2 — POL Departure</td><td>2026-06-12 07:24:06 <span class="note">container_departed → actualDeparturePol</span></td></tr>
+      <tr><td class="lbl">Event 3 — POD Arrival</td><td>2026-06-12 19:24:06 <span class="note">container_arrived (discharge) → actualArrivalPod</span></td></tr>
+      <tr><td class="lbl">Event 4 — Delivery</td><td>2026-06-13 03:24:06 <span class="note">container_arrived (destination) → actualArrivalDestination</span></td></tr>
+    </table></div>
+    </div>
+    </div>
+  </div>
+
+  <div class="scenario pass">
+    <div class="scenario-header">
+      <div class="scenario-meta">
+        <span class="sid">S-20</span>
+        <span class="stype update">Update Flow</span>
+        <span class="sgroup">GROUP U</span>
+      </div>
+      <div class="sname">CN+SCAC+InProgress → add BN+BL → valid=1</div>
+      <span class="badge pass">PASSED</span>
+    </div>
+    <div class="flow-row">
+      
+    <div class="step-card pass">
+      <div class="step-title"><span class="ico pass">✅</span> 1. Create OTU</div>
+      <div class="step-body"><table>
+    <tr><td class="lbl">Object Code</td><td>234dbdd523ae <span class="note">Logward internal ID</span></td></tr>
+    <tr><td class="lbl">Container No.</td><td>LGTE0373794</td></tr>
+    <tr><td class="lbl">Booking No.</td><td>—</td></tr>
+    <tr><td class="lbl">Bill of Lading</td><td>—</td></tr>
+    <tr><td class="lbl">SCAC</td><td>CMDU</td></tr>
+    <tr><td class="lbl">Status</td><td>In Progress</td></tr>
+    <tr><td class="lbl">HTTP Response</td><td>200 OK</td></tr>
+  </table></div>
+    </div>
+      <div class="arrow ">→</div>
+    <div class="step-card pass">
+      <div class="step-title"><span class="ico pass">✅</span> 2. Scheduler (before update)</div>
+      <div class="step-body"><table>
+      <tr><td class="lbl">active</td><td>1 <span class="note">✅ ATC conditions satisfied</span></td></tr>
+      <tr><td class="lbl">valid</td><td>0 <span class="note">❌ Required fields missing</span></td></tr>
+    </table><div class="stop-banner">⛔ FLOW STOPPED — No Shippeo order will be created</div></div>
+    </div><div class="arrow ">→</div>
+    <div class="step-card pass">
+      <div class="step-title"><span class="ico pass">✅</span> 3. OTU Update</div>
+      <div class="step-body"><table><tr><td class="lbl">bookingNumber</td><td>E2EBOOK066196 <span class="note">→ field added/updated</span></td></tr><tr><td class="lbl">billOfLadingNumber</td><td>E2EBL066196 <span class="note">→ field added/updated</span></td></tr></table></div>
+    </div><div class="arrow ">→</div>
+    <div class="step-card pass">
+      <div class="step-title"><span class="ico pass">✅</span> 4. Scheduler (after update)</div>
+      <div class="step-body"><table>
+      <tr><td class="lbl">active</td><td>1 <span class="note">✅ ATC conditions satisfied</span></td></tr>
+      <tr><td class="lbl">valid</td><td>1 <span class="note">✅ All required tracking fields present</span></td></tr>
+    </table></div>
+    </div>
+      <div class="arrow ">→</div>
+      
+    <div class="step-card pass">
+      <div class="step-title"><span class="ico pass">✅</span> 4. MongoDB Check</div>
+      <div class="step-body"><table>
+        <tr><td class="lbl">Document found</td><td>Yes <span class="note">✅</span></td></tr>
+        <tr><td class="lbl">error field</td><td>false <span class="note">✅ Shippeo order created successfully</span></td></tr>
+        <tr><td class="lbl">containerId</td><td>LGTE0373794</td></tr>
+        <tr><td class="lbl">uniqueReference</td><td>E2EBOOK066196_LGTE0373794 <span class="note">Format: bookingId_containerId or blId_containerId</span></td></tr>
+        <tr><td class="lbl">serviceProvider</td><td>SHIPPEO</td></tr>
+        <tr><td class="lbl">identifier</td><td>bookingId <span class="note">Which field Shippeo uses as primary key</span></td></tr>
+        <tr><td class="lbl">events at creation</td><td>0 <span class="note">Should be 0 — no events received yet</span></td></tr>
+      </table></div>
+    </div>
+      <div class="arrow ">→</div>
+      
+    <div class="step-card pass">
+      <div class="step-title"><span class="ico pass">✅</span> 5. Shippeo Check</div>
+      <div class="step-body"><table>
+        <tr><td class="lbl">Shipment found</td><td>Yes <span class="note">✅</span></td></tr>
+        <tr><td class="lbl">Order ID</td><td>144810241</td></tr>
+        <tr><td class="lbl">Reference</td><td>E2EBOOK066196_LGTE0373794</td></tr>
+        <tr><td class="lbl">Organisation</td><td>Lidl_Test</td></tr>
+        <tr><td class="lbl">Agency</td><td>Lidl Ocean_Test</td></tr>
+        <tr><td class="lbl">Transport Mode</td><td>ocean</td></tr>
+      </table></div>
+    </div>
+      <div class="arrow ">→</div>
+      
+    <div class="step-card pass">
+      <div class="step-title"><span class="ico pass">✅</span> 6. Events → OTU Fields</div>
+      <div class="step-body"><table>
+      <tr><td class="lbl">Event 1 — Pre-Carriage</td><td>2026-06-11 21:54:06 <span class="note">container_gate_out_empty → actualGateOutEmptyDepot</span></td></tr>
+      <tr><td class="lbl">Event 2 — POL Departure</td><td>2026-06-12 06:24:06 <span class="note">container_departed → actualDeparturePol</span></td></tr>
+      <tr><td class="lbl">Event 3 — POD Arrival</td><td>2026-06-13 00:24:06 <span class="note">container_arrived (discharge) → actualArrivalPod</span></td></tr>
+      <tr><td class="lbl">Event 4 — Delivery</td><td>2026-06-13 09:24:06 <span class="note">container_arrived (destination) → actualArrivalDestination</span></td></tr>
+    </table></div>
+    </div>
+    </div>
+  </div>
+
+  <div class="scenario pass">
+    <div class="scenario-header">
+      <div class="scenario-meta">
+        <span class="sid">S-21</span>
+        <span class="stype update">Update Flow</span>
+        <span class="sgroup">GROUP U</span>
+      </div>
+      <div class="sname">BN+CN+SCAC no status → add InProgress → valid=1</div>
+      <span class="badge pass">PASSED</span>
+    </div>
+    <div class="flow-row">
+      
+    <div class="step-card pass">
+      <div class="step-title"><span class="ico pass">✅</span> 1. Create OTU</div>
+      <div class="step-body"><table>
+    <tr><td class="lbl">Object Code</td><td>94c21c4fedaa <span class="note">Logward internal ID</span></td></tr>
+    <tr><td class="lbl">Container No.</td><td>LGTE0409734</td></tr>
+    <tr><td class="lbl">Booking No.</td><td>E2EBOOK076196</td></tr>
+    <tr><td class="lbl">Bill of Lading</td><td>—</td></tr>
+    <tr><td class="lbl">SCAC</td><td>HLCU</td></tr>
+    <tr><td class="lbl">Status</td><td>—</td></tr>
+    <tr><td class="lbl">HTTP Response</td><td>200 OK</td></tr>
+  </table></div>
+    </div>
+      <div class="arrow ">→</div>
+    <div class="step-card pass">
+      <div class="step-title"><span class="ico pass">✅</span> 2. Scheduler (before update)</div>
+      <div class="step-body"><table>
+      <tr><td class="lbl">active</td><td>0 <span class="note">❌ ATC conditions NOT met</span></td></tr>
+      <tr><td class="lbl">valid</td><td>0 <span class="note">❌ Required fields missing</span></td></tr>
+    </table><div class="stop-banner">⛔ FLOW STOPPED — No Shippeo order will be created</div></div>
+    </div><div class="arrow dim">→</div>
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 3. OTU Update</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div><div class="arrow ">→</div>
+    <div class="step-card pass">
+      <div class="step-title"><span class="ico pass">✅</span> 4. Scheduler (after update)</div>
+      <div class="step-body"><table>
+      <tr><td class="lbl">active</td><td>1 <span class="note">✅ ATC conditions satisfied</span></td></tr>
+      <tr><td class="lbl">valid</td><td>1 <span class="note">✅ All required tracking fields present</span></td></tr>
+    </table></div>
+    </div>
+      <div class="arrow ">→</div>
+      
+    <div class="step-card pass">
+      <div class="step-title"><span class="ico pass">✅</span> 4. MongoDB Check</div>
+      <div class="step-body"><table>
+        <tr><td class="lbl">Document found</td><td>Yes <span class="note">✅</span></td></tr>
+        <tr><td class="lbl">error field</td><td>false <span class="note">✅ Shippeo order created successfully</span></td></tr>
+        <tr><td class="lbl">containerId</td><td>LGTE0409734</td></tr>
+        <tr><td class="lbl">uniqueReference</td><td>E2EBOOK076196_LGTE0409734 <span class="note">Format: bookingId_containerId or blId_containerId</span></td></tr>
+        <tr><td class="lbl">serviceProvider</td><td>SHIPPEO</td></tr>
+        <tr><td class="lbl">identifier</td><td>bookingId <span class="note">Which field Shippeo uses as primary key</span></td></tr>
+        <tr><td class="lbl">events at creation</td><td>0 <span class="note">Should be 0 — no events received yet</span></td></tr>
+      </table></div>
+    </div>
+      <div class="arrow ">→</div>
+      
+    <div class="step-card pass">
+      <div class="step-title"><span class="ico pass">✅</span> 5. Shippeo Check</div>
+      <div class="step-body"><table>
+        <tr><td class="lbl">Shipment found</td><td>Yes <span class="note">✅</span></td></tr>
+        <tr><td class="lbl">Order ID</td><td>144810627</td></tr>
+        <tr><td class="lbl">Reference</td><td>E2EBOOK076196_LGTE0409734</td></tr>
+        <tr><td class="lbl">Organisation</td><td>Lidl_Test</td></tr>
+        <tr><td class="lbl">Agency</td><td>Lidl Ocean_Test</td></tr>
+        <tr><td class="lbl">Transport Mode</td><td>ocean</td></tr>
+      </table>
+        <div style="margin-top:8px;font-weight:700;font-size:.75rem;color:#4a5568;">
+          Order Details Validation ✅
+        </div>
+        <table style="margin-top:4px;">
+          <tr>
+              <td class="lbl">container.reference</td>
+              <td style="">✅ LGTE0409734</td>
+            </tr><tr>
+              <td class="lbl">cargo.reference</td>
+              <td style="">✅ LGTE0409734</td>
+            </tr><tr>
+              <td class="lbl">scacAtCreation</td>
+              <td style="">✅ HLCU</td>
+            </tr><tr>
+              <td class="lbl">oceanCarrier.scacList</td>
+              <td style="">✅ HLCU, HLUS, UASC, DAYU, NSLU, CHIW, NIDU</td>
+            </tr><tr>
+              <td class="lbl">oceanCarrier.name</td>
+              <td style="">✅ Hapag-Lloyd</td>
+            </tr><tr>
+              <td class="lbl">bookingReferenceList</td>
+              <td style="">✅ E2EBOOK076196</td>
+            </tr><tr>
+                <td class="lbl" style="color:#a0aec0">billOfLadingList</td>
+                <td style="color:#a0aec0;font-style:italic">skipped — no BL on this scenario</td>
+              </tr>
+        </table></div>
+    </div>
+      <div class="arrow ">→</div>
+      
+    <div class="step-card pass">
+      <div class="step-title"><span class="ico pass">✅</span> 6. Events → OTU Fields</div>
+      <div class="step-body"><table>
+      <tr><td class="lbl">Event 1 — Pre-Carriage</td><td>2026-06-11 08:54:06 <span class="note">container_gate_out_empty → actualGateOutEmptyDepot</span></td></tr>
+      <tr><td class="lbl">Event 2 — POL Departure</td><td>2026-06-11 18:24:06 <span class="note">container_departed → actualDeparturePol</span></td></tr>
+      <tr><td class="lbl">Event 3 — POD Arrival</td><td>2026-06-12 19:24:06 <span class="note">container_arrived (discharge) → actualArrivalPod</span></td></tr>
+      <tr><td class="lbl">Event 4 — Delivery</td><td>2026-06-13 09:24:06 <span class="note">container_arrived (destination) → actualArrivalDestination</span></td></tr>
+    </table></div>
+    </div>
+    </div>
+  </div>
+
+  <div class="scenario pass">
+    <div class="scenario-header">
+      <div class="scenario-meta">
+        <span class="sid">S-22</span>
+        <span class="stype update">Update Flow</span>
+        <span class="sgroup">GROUP U</span>
+      </div>
+      <div class="sname">BN+CN+InProgress no SCAC → add SCAC → valid=1</div>
+      <span class="badge pass">PASSED</span>
+    </div>
+    <div class="flow-row">
+      
+    <div class="step-card pass">
+      <div class="step-title"><span class="ico pass">✅</span> 1. Create OTU</div>
+      <div class="step-body"><table>
+    <tr><td class="lbl">Object Code</td><td>b4ade5d3475b <span class="note">Logward internal ID</span></td></tr>
+    <tr><td class="lbl">Container No.</td><td>LGTE0564255</td></tr>
+    <tr><td class="lbl">Booking No.</td><td>E2EBOOK086196</td></tr>
+    <tr><td class="lbl">Bill of Lading</td><td>—</td></tr>
+    <tr><td class="lbl">SCAC</td><td>—</td></tr>
+    <tr><td class="lbl">Status</td><td>In Progress</td></tr>
+    <tr><td class="lbl">HTTP Response</td><td>200 OK</td></tr>
+  </table></div>
+    </div>
+      <div class="arrow ">→</div>
+    <div class="step-card pass">
+      <div class="step-title"><span class="ico pass">✅</span> 2. Scheduler (before update)</div>
+      <div class="step-body"><table>
+      <tr><td class="lbl">active</td><td>1 <span class="note">✅ ATC conditions satisfied</span></td></tr>
+      <tr><td class="lbl">valid</td><td>0 <span class="note">❌ Required fields missing</span></td></tr>
+    </table><div class="stop-banner">⛔ FLOW STOPPED — No Shippeo order will be created</div></div>
+    </div><div class="arrow dim">→</div>
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 3. OTU Update</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div><div class="arrow ">→</div>
+    <div class="step-card pass">
+      <div class="step-title"><span class="ico pass">✅</span> 4. Scheduler (after update)</div>
+      <div class="step-body"><table>
+      <tr><td class="lbl">active</td><td>1 <span class="note">✅ ATC conditions satisfied</span></td></tr>
+      <tr><td class="lbl">valid</td><td>1 <span class="note">✅ All required tracking fields present</span></td></tr>
+    </table></div>
+    </div>
+      <div class="arrow ">→</div>
+      
+    <div class="step-card pass">
+      <div class="step-title"><span class="ico pass">✅</span> 4. MongoDB Check</div>
+      <div class="step-body"><table>
+        <tr><td class="lbl">Document found</td><td>Yes <span class="note">✅</span></td></tr>
+        <tr><td class="lbl">error field</td><td>false <span class="note">✅ Shippeo order created successfully</span></td></tr>
+        <tr><td class="lbl">containerId</td><td>LGTE0564255</td></tr>
+        <tr><td class="lbl">uniqueReference</td><td>E2EBOOK086196_LGTE0564255 <span class="note">Format: bookingId_containerId or blId_containerId</span></td></tr>
+        <tr><td class="lbl">serviceProvider</td><td>SHIPPEO</td></tr>
+        <tr><td class="lbl">identifier</td><td>bookingId <span class="note">Which field Shippeo uses as primary key</span></td></tr>
+        <tr><td class="lbl">events at creation</td><td>0 <span class="note">Should be 0 — no events received yet</span></td></tr>
+      </table></div>
+    </div>
+      <div class="arrow ">→</div>
+      
+    <div class="step-card pass">
+      <div class="step-title"><span class="ico pass">✅</span> 5. Shippeo Check</div>
+      <div class="step-body"><table>
+        <tr><td class="lbl">Shipment found</td><td>Yes <span class="note">✅</span></td></tr>
+        <tr><td class="lbl">Order ID</td><td>144811014</td></tr>
+        <tr><td class="lbl">Reference</td><td>E2EBOOK086196_LGTE0564255</td></tr>
+        <tr><td class="lbl">Organisation</td><td>Lidl_Test</td></tr>
+        <tr><td class="lbl">Agency</td><td>Lidl Ocean_Test</td></tr>
+        <tr><td class="lbl">Transport Mode</td><td>ocean</td></tr>
+      </table>
+        <div style="margin-top:8px;font-weight:700;font-size:.75rem;color:#4a5568;">
+          Order Details Validation ✅
+        </div>
+        <table style="margin-top:4px;">
+          <tr>
+              <td class="lbl">container.reference</td>
+              <td style="">✅ LGTE0564255</td>
+            </tr><tr>
+              <td class="lbl">cargo.reference</td>
+              <td style="">✅ LGTE0564255</td>
+            </tr><tr>
+              <td class="lbl">scacAtCreation</td>
+              <td style="">✅ MSCU</td>
+            </tr><tr>
+              <td class="lbl">oceanCarrier.scacList</td>
+              <td style="">✅ MSCU, MEDU</td>
+            </tr><tr>
+              <td class="lbl">oceanCarrier.name</td>
+              <td style="">✅ MSC</td>
+            </tr><tr>
+              <td class="lbl">bookingReferenceList</td>
+              <td style="">✅ E2EBOOK086196</td>
+            </tr><tr>
+                <td class="lbl" style="color:#a0aec0">billOfLadingList</td>
+                <td style="color:#a0aec0;font-style:italic">skipped — no BL on this scenario</td>
+              </tr>
+        </table></div>
+    </div>
+      <div class="arrow ">→</div>
+      
+    <div class="step-card pass">
+      <div class="step-title"><span class="ico pass">✅</span> 6. Events → OTU Fields</div>
+      <div class="step-body"><table>
+      <tr><td class="lbl">Event 1 — Pre-Carriage</td><td>2026-06-11 21:54:06 <span class="note">container_gate_out_empty → actualGateOutEmptyDepot</span></td></tr>
+      <tr><td class="lbl">Event 2 — POL Departure</td><td>2026-06-12 00:24:06 <span class="note">container_departed → actualDeparturePol</span></td></tr>
+      <tr><td class="lbl">Event 3 — POD Arrival</td><td>2026-06-12 16:24:06 <span class="note">container_arrived (discharge) → actualArrivalPod</span></td></tr>
+      <tr><td class="lbl">Event 4 — Delivery</td><td>2026-06-13 09:24:06 <span class="note">container_arrived (destination) → actualArrivalDestination</span></td></tr>
+    </table></div>
+    </div>
+    </div>
+  </div>
+
+  <div class="scenario pass">
+    <div class="scenario-header">
+      <div class="scenario-meta">
+        <span class="sid">S-23</span>
+        <span class="stype update">Update Flow</span>
+        <span class="sgroup">GROUP U</span>
+      </div>
+      <div class="sname">BN+SCAC+InProgress → CN auto-generated → valid=1</div>
+      <span class="badge pass">PASSED</span>
+    </div>
+    <div class="flow-row">
+      
+    <div class="step-card pass">
+      <div class="step-title"><span class="ico pass">✅</span> 1. Create OTU</div>
+      <div class="step-body"><table>
+    <tr><td class="lbl">Object Code</td><td>1dbc2f2b40ef <span class="note">Logward internal ID</span></td></tr>
+    <tr><td class="lbl">Container No.</td><td>LGTE0600933</td></tr>
+    <tr><td class="lbl">Booking No.</td><td>E2EBOOK096196</td></tr>
+    <tr><td class="lbl">Bill of Lading</td><td>—</td></tr>
+    <tr><td class="lbl">SCAC</td><td>MSCU</td></tr>
+    <tr><td class="lbl">Status</td><td>In Progress</td></tr>
+    <tr><td class="lbl">HTTP Response</td><td>200 OK</td></tr>
+  </table></div>
+    </div>
+      <div class="arrow dim">→</div>
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 2. Scheduler (before update)</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div><div class="arrow dim">→</div>
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 3. OTU Update</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div><div class="arrow ">→</div>
+    <div class="step-card pass">
+      <div class="step-title"><span class="ico pass">✅</span> 4. Scheduler (after update)</div>
+      <div class="step-body"><table>
+      <tr><td class="lbl">active</td><td>1 <span class="note">✅ ATC conditions satisfied</span></td></tr>
+      <tr><td class="lbl">valid</td><td>1 <span class="note">✅ All required tracking fields present</span></td></tr>
+    </table></div>
+    </div>
+      <div class="arrow ">→</div>
+      
+    <div class="step-card pass">
+      <div class="step-title"><span class="ico pass">✅</span> 4. MongoDB Check</div>
+      <div class="step-body"><table>
+        <tr><td class="lbl">Document found</td><td>Yes <span class="note">✅</span></td></tr>
+        <tr><td class="lbl">error field</td><td>false <span class="note">✅ Shippeo order created successfully</span></td></tr>
+        <tr><td class="lbl">containerId</td><td>LGTE0600933</td></tr>
+        <tr><td class="lbl">uniqueReference</td><td>E2EBOOK096196_LGTE0600933 <span class="note">Format: bookingId_containerId or blId_containerId</span></td></tr>
+        <tr><td class="lbl">serviceProvider</td><td>SHIPPEO</td></tr>
+        <tr><td class="lbl">identifier</td><td>bookingId <span class="note">Which field Shippeo uses as primary key</span></td></tr>
+        <tr><td class="lbl">events at creation</td><td>0 <span class="note">Should be 0 — no events received yet</span></td></tr>
+      </table></div>
+    </div>
+      <div class="arrow ">→</div>
+      
+    <div class="step-card pass">
+      <div class="step-title"><span class="ico pass">✅</span> 5. Shippeo Check</div>
+      <div class="step-body"><table>
+        <tr><td class="lbl">Shipment found</td><td>Yes <span class="note">✅</span></td></tr>
+        <tr><td class="lbl">Order ID</td><td>144811179</td></tr>
+        <tr><td class="lbl">Reference</td><td>E2EBOOK096196_LGTE0600933</td></tr>
+        <tr><td class="lbl">Organisation</td><td>Lidl_Test</td></tr>
+        <tr><td class="lbl">Agency</td><td>Lidl Ocean_Test</td></tr>
+        <tr><td class="lbl">Transport Mode</td><td>ocean</td></tr>
+      </table>
+        <div style="margin-top:8px;font-weight:700;font-size:.75rem;color:#4a5568;">
+          Order Details Validation ✅
+        </div>
+        <table style="margin-top:4px;">
+          <tr>
+              <td class="lbl">container.reference</td>
+              <td style="">✅ LGTE0600933</td>
+            </tr><tr>
+              <td class="lbl">cargo.reference</td>
+              <td style="">✅ LGTE0600933</td>
+            </tr><tr>
+              <td class="lbl">scacAtCreation</td>
+              <td style="">✅ MSCU</td>
+            </tr><tr>
+              <td class="lbl">oceanCarrier.scacList</td>
+              <td style="">✅ MSCU, MEDU</td>
+            </tr><tr>
+              <td class="lbl">oceanCarrier.name</td>
+              <td style="">✅ MSC</td>
+            </tr><tr>
+              <td class="lbl">bookingReferenceList</td>
+              <td style="">✅ E2EBOOK096196</td>
+            </tr><tr>
+                <td class="lbl" style="color:#a0aec0">billOfLadingList</td>
+                <td style="color:#a0aec0;font-style:italic">skipped — no BL on this scenario</td>
+              </tr>
+        </table></div>
+    </div>
+      <div class="arrow ">→</div>
+      
+    <div class="step-card pass">
+      <div class="step-title"><span class="ico pass">✅</span> 6. Events → OTU Fields</div>
+      <div class="step-body"><table>
+      <tr><td class="lbl">Event 1 — Pre-Carriage</td><td>2026-06-11 08:54:06 <span class="note">container_gate_out_empty → actualGateOutEmptyDepot</span></td></tr>
+      <tr><td class="lbl">Event 2 — POL Departure</td><td>2026-06-12 00:24:06 <span class="note">container_departed → actualDeparturePol</span></td></tr>
+      <tr><td class="lbl">Event 3 — POD Arrival</td><td>2026-06-12 23:24:06 <span class="note">container_arrived (discharge) → actualArrivalPod</span></td></tr>
+      <tr><td class="lbl">Event 4 — Delivery</td><td>2026-06-13 05:24:06 <span class="note">container_arrived (destination) → actualArrivalDestination</span></td></tr>
+    </table></div>
+    </div>
+    </div>
+  </div>
+      </div>
+      <div class="group-section">
+        <div class="group-header">
+          <span class="group-label">🔴 active=0 valid=0 — Flow stops at Scheduler (S-04 to S-09)</span>
+          <span class="group-counts"> · 6 total</span>
+        </div>
+        
+  <div class="scenario pending">
+    <div class="scenario-header">
+      <div class="scenario-meta">
+        <span class="sid">S-04</span>
+        <span class="stype negative">Negative</span>
+        <span class="sgroup">GROUP N1</span>
+      </div>
+      <div class="sname">BN + CN + SCAC — no status</div>
+      <span class="badge pending">PENDING</span>
+    </div>
+    <div class="flow-row">
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 1. Create OTU</div>
+      <div class="step-body"><table>
+    
+    
+    <tr><td class="lbl">Booking No.</td><td>—</td></tr>
+    <tr><td class="lbl">Bill of Lading</td><td>—</td></tr>
+    <tr><td class="lbl">SCAC</td><td>—</td></tr>
+    <tr><td class="lbl">Status</td><td>—</td></tr>
+    
+  </table></div>
+    </div>
+      <div class="arrow dim">→</div>
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 2. Scheduler Check</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+      <div class="arrow dim">→</div>
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 3. MongoDB Check</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+      <div class="arrow dim">→</div>
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 4. Shippeo Check</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+      <div class="arrow dim">→</div>
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 5. Events → OTU Fields</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+    </div>
+  </div>
+
+  <div class="scenario pending">
+    <div class="scenario-header">
+      <div class="scenario-meta">
+        <span class="sid">S-05</span>
+        <span class="stype negative">Negative</span>
+        <span class="sgroup">GROUP N1</span>
+      </div>
+      <div class="sname">BL + CN + SCAC — no status</div>
+      <span class="badge pending">PENDING</span>
+    </div>
+    <div class="flow-row">
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 1. Create OTU</div>
+      <div class="step-body"><table>
+    
+    
+    <tr><td class="lbl">Booking No.</td><td>—</td></tr>
+    <tr><td class="lbl">Bill of Lading</td><td>—</td></tr>
+    <tr><td class="lbl">SCAC</td><td>—</td></tr>
+    <tr><td class="lbl">Status</td><td>—</td></tr>
+    
+  </table></div>
+    </div>
+      <div class="arrow dim">→</div>
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 2. Scheduler Check</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+      <div class="arrow dim">→</div>
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 3. MongoDB Check</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+      <div class="arrow dim">→</div>
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 4. Shippeo Check</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+      <div class="arrow dim">→</div>
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 5. Events → OTU Fields</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+    </div>
+  </div>
+
+  <div class="scenario pending">
+    <div class="scenario-header">
+      <div class="scenario-meta">
+        <span class="sid">S-06</span>
+        <span class="stype negative">Negative</span>
+        <span class="sgroup">GROUP N1</span>
+      </div>
+      <div class="sname">BN + BL + CN + SCAC — no status</div>
+      <span class="badge pending">PENDING</span>
+    </div>
+    <div class="flow-row">
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 1. Create OTU</div>
+      <div class="step-body"><table>
+    
+    
+    <tr><td class="lbl">Booking No.</td><td>—</td></tr>
+    <tr><td class="lbl">Bill of Lading</td><td>—</td></tr>
+    <tr><td class="lbl">SCAC</td><td>—</td></tr>
+    <tr><td class="lbl">Status</td><td>—</td></tr>
+    
+  </table></div>
+    </div>
+      <div class="arrow dim">→</div>
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 2. Scheduler Check</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+      <div class="arrow dim">→</div>
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 3. MongoDB Check</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+      <div class="arrow dim">→</div>
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 4. Shippeo Check</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+      <div class="arrow dim">→</div>
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 5. Events → OTU Fields</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+    </div>
+  </div>
+
+  <div class="scenario pending">
+    <div class="scenario-header">
+      <div class="scenario-meta">
+        <span class="sid">S-07</span>
+        <span class="stype negative">Negative</span>
+        <span class="sgroup">GROUP N1</span>
+      </div>
+      <div class="sname">status=InProgress alone — no identifier, no SCAC (CN auto)</div>
+      <span class="badge pending">PENDING</span>
+    </div>
+    <div class="flow-row">
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 1. Create OTU</div>
+      <div class="step-body"><table>
+    
+    
+    <tr><td class="lbl">Booking No.</td><td>—</td></tr>
+    <tr><td class="lbl">Bill of Lading</td><td>—</td></tr>
+    <tr><td class="lbl">SCAC</td><td>—</td></tr>
+    <tr><td class="lbl">Status</td><td>—</td></tr>
+    
+  </table></div>
+    </div>
+      <div class="arrow dim">→</div>
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 2. Scheduler Check</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+      <div class="arrow dim">→</div>
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 3. MongoDB Check</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+      <div class="arrow dim">→</div>
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 4. Shippeo Check</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+      <div class="arrow dim">→</div>
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 5. Events → OTU Fields</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+    </div>
+  </div>
+
+  <div class="scenario pending">
+    <div class="scenario-header">
+      <div class="scenario-meta">
+        <span class="sid">S-08</span>
+        <span class="stype negative">Negative</span>
+        <span class="sgroup">GROUP N1</span>
+      </div>
+      <div class="sname">status=Cancelled + BN + CN + SCAC</div>
+      <span class="badge pending">PENDING</span>
+    </div>
+    <div class="flow-row">
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 1. Create OTU</div>
+      <div class="step-body"><table>
+    
+    
+    <tr><td class="lbl">Booking No.</td><td>—</td></tr>
+    <tr><td class="lbl">Bill of Lading</td><td>—</td></tr>
+    <tr><td class="lbl">SCAC</td><td>—</td></tr>
+    <tr><td class="lbl">Status</td><td>—</td></tr>
+    
+  </table></div>
+    </div>
+      <div class="arrow dim">→</div>
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 2. Scheduler Check</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+      <div class="arrow dim">→</div>
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 3. MongoDB Check</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+      <div class="arrow dim">→</div>
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 4. Shippeo Check</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+      <div class="arrow dim">→</div>
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 5. Events → OTU Fields</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+    </div>
+  </div>
+
+  <div class="scenario pending">
+    <div class="scenario-header">
+      <div class="scenario-meta">
+        <span class="sid">S-09</span>
+        <span class="stype negative">Negative</span>
+        <span class="sgroup">GROUP N1</span>
+      </div>
+      <div class="sname">status=Completed + BN + CN + SCAC</div>
+      <span class="badge pending">PENDING</span>
+    </div>
+    <div class="flow-row">
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 1. Create OTU</div>
+      <div class="step-body"><table>
+    
+    
+    <tr><td class="lbl">Booking No.</td><td>—</td></tr>
+    <tr><td class="lbl">Bill of Lading</td><td>—</td></tr>
+    <tr><td class="lbl">SCAC</td><td>—</td></tr>
+    <tr><td class="lbl">Status</td><td>—</td></tr>
+    
+  </table></div>
+    </div>
+      <div class="arrow dim">→</div>
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 2. Scheduler Check</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+      <div class="arrow dim">→</div>
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 3. MongoDB Check</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+      <div class="arrow dim">→</div>
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 4. Shippeo Check</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+      <div class="arrow dim">→</div>
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 5. Events → OTU Fields</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+    </div>
+  </div>
+      </div>
+      <div class="group-section">
+        <div class="group-header">
+          <span class="group-label">🟡 active=1 valid=0 — Flow stops at Scheduler (S-07 to S-17)</span>
+          <span class="group-counts"> · 6 total</span>
+        </div>
+        
+  <div class="scenario pending">
+    <div class="scenario-header">
+      <div class="scenario-meta">
+        <span class="sid">S-10</span>
+        <span class="stype negative">Negative</span>
+        <span class="sgroup">GROUP N2</span>
+      </div>
+      <div class="sname">InProgress + BN only (no SCAC, no CN explicitly — but CN auto)</div>
+      <span class="badge pending">PENDING</span>
+    </div>
+    <div class="flow-row">
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 1. Create OTU</div>
+      <div class="step-body"><table>
+    
+    
+    <tr><td class="lbl">Booking No.</td><td>—</td></tr>
+    <tr><td class="lbl">Bill of Lading</td><td>—</td></tr>
+    <tr><td class="lbl">SCAC</td><td>—</td></tr>
+    <tr><td class="lbl">Status</td><td>—</td></tr>
+    
+  </table></div>
+    </div>
+      <div class="arrow dim">→</div>
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 2. Scheduler Check</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+      <div class="arrow dim">→</div>
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 3. MongoDB Check</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+      <div class="arrow dim">→</div>
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 4. Shippeo Check</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+      <div class="arrow dim">→</div>
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 5. Events → OTU Fields</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+    </div>
+  </div>
+
+  <div class="scenario pending">
+    <div class="scenario-header">
+      <div class="scenario-meta">
+        <span class="sid">S-11</span>
+        <span class="stype negative">Negative</span>
+        <span class="sgroup">GROUP N2</span>
+      </div>
+      <div class="sname">InProgress + BL only (no SCAC)</div>
+      <span class="badge pending">PENDING</span>
+    </div>
+    <div class="flow-row">
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 1. Create OTU</div>
+      <div class="step-body"><table>
+    
+    
+    <tr><td class="lbl">Booking No.</td><td>—</td></tr>
+    <tr><td class="lbl">Bill of Lading</td><td>—</td></tr>
+    <tr><td class="lbl">SCAC</td><td>—</td></tr>
+    <tr><td class="lbl">Status</td><td>—</td></tr>
+    
+  </table></div>
+    </div>
+      <div class="arrow dim">→</div>
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 2. Scheduler Check</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+      <div class="arrow dim">→</div>
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 3. MongoDB Check</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+      <div class="arrow dim">→</div>
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 4. Shippeo Check</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+      <div class="arrow dim">→</div>
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 5. Events → OTU Fields</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+    </div>
+  </div>
+
+  <div class="scenario pending">
+    <div class="scenario-header">
+      <div class="scenario-meta">
+        <span class="sid">S-12</span>
+        <span class="stype negative">Negative</span>
+        <span class="sgroup">GROUP N2</span>
+      </div>
+      <div class="sname">InProgress + CN + SCAC (no BN/BL)</div>
+      <span class="badge pending">PENDING</span>
+    </div>
+    <div class="flow-row">
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 1. Create OTU</div>
+      <div class="step-body"><table>
+    
+    
+    <tr><td class="lbl">Booking No.</td><td>—</td></tr>
+    <tr><td class="lbl">Bill of Lading</td><td>—</td></tr>
+    <tr><td class="lbl">SCAC</td><td>—</td></tr>
+    <tr><td class="lbl">Status</td><td>—</td></tr>
+    
+  </table></div>
+    </div>
+      <div class="arrow dim">→</div>
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 2. Scheduler Check</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+      <div class="arrow dim">→</div>
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 3. MongoDB Check</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+      <div class="arrow dim">→</div>
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 4. Shippeo Check</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+      <div class="arrow dim">→</div>
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 5. Events → OTU Fields</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+    </div>
+  </div>
+
+  <div class="scenario pending">
+    <div class="scenario-header">
+      <div class="scenario-meta">
+        <span class="sid">S-13</span>
+        <span class="stype negative">Negative</span>
+        <span class="sgroup">GROUP N2</span>
+      </div>
+      <div class="sname">InProgress + BN + CN (no SCAC, carrier cleared)</div>
+      <span class="badge pending">PENDING</span>
+    </div>
+    <div class="flow-row">
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 1. Create OTU</div>
+      <div class="step-body"><table>
+    
+    
+    <tr><td class="lbl">Booking No.</td><td>—</td></tr>
+    <tr><td class="lbl">Bill of Lading</td><td>—</td></tr>
+    <tr><td class="lbl">SCAC</td><td>—</td></tr>
+    <tr><td class="lbl">Status</td><td>—</td></tr>
+    
+  </table></div>
+    </div>
+      <div class="arrow dim">→</div>
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 2. Scheduler Check</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+      <div class="arrow dim">→</div>
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 3. MongoDB Check</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+      <div class="arrow dim">→</div>
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 4. Shippeo Check</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+      <div class="arrow dim">→</div>
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 5. Events → OTU Fields</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+    </div>
+  </div>
+
+  <div class="scenario pending">
+    <div class="scenario-header">
+      <div class="scenario-meta">
+        <span class="sid">S-15</span>
+        <span class="stype negative">Negative</span>
+        <span class="sgroup">GROUP N2</span>
+      </div>
+      <div class="sname">InProgress + BL + CN (no SCAC, carrier cleared)</div>
+      <span class="badge pending">PENDING</span>
+    </div>
+    <div class="flow-row">
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 1. Create OTU</div>
+      <div class="step-body"><table>
+    
+    
+    <tr><td class="lbl">Booking No.</td><td>—</td></tr>
+    <tr><td class="lbl">Bill of Lading</td><td>—</td></tr>
+    <tr><td class="lbl">SCAC</td><td>—</td></tr>
+    <tr><td class="lbl">Status</td><td>—</td></tr>
+    
+  </table></div>
+    </div>
+      <div class="arrow dim">→</div>
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 2. Scheduler Check</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+      <div class="arrow dim">→</div>
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 3. MongoDB Check</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+      <div class="arrow dim">→</div>
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 4. Shippeo Check</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+      <div class="arrow dim">→</div>
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 5. Events → OTU Fields</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+    </div>
+  </div>
+
+  <div class="scenario pending">
+    <div class="scenario-header">
+      <div class="scenario-meta">
+        <span class="sid">S-17</span>
+        <span class="stype negative">Negative</span>
+        <span class="sgroup">GROUP N2</span>
+      </div>
+      <div class="sname">InProgress only (CN auto, no BN/BL, no carrier)</div>
+      <span class="badge pending">PENDING</span>
+    </div>
+    <div class="flow-row">
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 1. Create OTU</div>
+      <div class="step-body"><table>
+    
+    
+    <tr><td class="lbl">Booking No.</td><td>—</td></tr>
+    <tr><td class="lbl">Bill of Lading</td><td>—</td></tr>
+    <tr><td class="lbl">SCAC</td><td>—</td></tr>
+    <tr><td class="lbl">Status</td><td>—</td></tr>
+    
+  </table></div>
+    </div>
+      <div class="arrow dim">→</div>
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 2. Scheduler Check</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+      <div class="arrow dim">→</div>
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 3. MongoDB Check</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+      <div class="arrow dim">→</div>
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 4. Shippeo Check</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+      <div class="arrow dim">→</div>
+      
+    <div class="step-card pending">
+      <div class="step-title"><span class="ico pending">⏳</span> 5. Events → OTU Fields</div>
+      <div class="step-body"><span class="dim">Not reached</span></div>
+    </div>
+    </div>
+  </div>
+      </div>
+
+<div class="footer">Logward QA Automation — Ocean Orders-In Flow Report · 2026-06-11 12:28:53 UTC</div>
+
+</body>
+</html>
