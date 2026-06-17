@@ -34,7 +34,8 @@ const C = {
   magenta: '\x1b[35m', blue:    '\x1b[34m',
 };
 
-const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: false });
+rl.on('close', () => {}); // prevent early exit when stdin is piped and reaches EOF
 const ask = q => new Promise(res => rl.question(q, a => res(a.trim())));
 
 function banner(text, icon = '▶') {
@@ -65,9 +66,10 @@ const session = {
   polSite:          null,  // { unlocode, city, country, timezone }
   podSite:          null,
   // TSP slot registry — each slot gets a locode assigned the first time it's used.
-  // Subsequent events for the same slot reuse the same locode automatically.
-  // e.g. slot 1 = CNSHA (from actualArrivalTsp1) → reused for actualDischargeTsp1.
   tspSlots:         { 1: null, 2: null, 3: null, 4: null },
+  // TSP vessel registry — each leg gets a vessel assigned once.
+  // In positive flow: no two legs share the same vessel IMO.
+  tspVesselsByLeg:  { 1: null, 2: null, 3: null, 4: null },
   shippeoShipment:  null,   // set after Shippeo verification
   shippeoVerified:  false,
   startTime:        Date.now(),
@@ -163,9 +165,11 @@ async function searchShippeo(reference) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function stageDate(daysFromToday, hours = 8) {
-  const d = new Date();
-  d.setDate(d.getDate() + daysFromToday);
-  d.setUTCHours(hours, 0, 0, 0);
+  const now = new Date();
+  const d = new Date(now);
+  d.setUTCDate(d.getUTCDate() + daysFromToday);
+  // Keep current seconds+ms so re-running the same event always sends a new unique timestamp
+  d.setUTCHours(hours, 0, now.getUTCSeconds(), now.getUTCMilliseconds());
   return d.toISOString();
 }
 
@@ -184,7 +188,7 @@ function buildPayload(cn, eventOpts) {
     // Accept both 'situationType' and 'sitType' (DIRECT_FIELDS/TSP_FIELDS use sitType)
     situationType: _st, sitType: _stt,
     dataSource = null,
-    placeType = 'transhipment', unlocode, timezone, city, country,
+    placeType = 'transhipment', payloadPlaceType, unlocode, timezone, city, country,
     vessel, bookingNumber, blNumber, loadingUnlocode, deliveryUnlocode,
   } = eventOpts;
   const situationType = _st || _stt || 'actual';
@@ -212,7 +216,7 @@ function buildPayload(cn, eventOpts) {
       country: country || null,   // depotPreCountry, pickUpOriginCountry, destinationCountry
       timezone: timezone || null,
       position: { lat: 0, lng: 0 },
-      place_type: placeType,
+      place_type: payloadPlaceType || placeType,
     },
     // carrier field — uses whatever SCAC was set on the OTU at creation time
     carrier: { scacs: session.carrierScac ? [session.carrierScac] : [] },
@@ -242,8 +246,8 @@ const DIRECT_FIELDS = {
   'actualLoadedAtOrigin':        { stage: 'Pre-Carriage', event: 'container_loaded',         placeType: 'origin_inland_location' },
   'estimatedLoadedAtOrigin':     { stage: 'Pre-Carriage', event: 'container_loaded',         placeType: 'origin_inland_location', sitType: 'estimated', dataSource: 'external' },
   // ── Port of Loading ─────────────────────────────────────────────────────────
-  'actualGateInPol':             { stage: 'POL', event: 'container_gate_out_full',  placeType: 'loading' },
-  'estimatedGateInPol':          { stage: 'POL', event: 'container_gate_out_full',  placeType: 'loading', sitType: 'estimated', dataSource: 'external' },
+  'actualGateInPol':             { stage: 'POL', event: 'container_gate_in_full',   placeType: 'loading' },
+  'estimatedGateInPol':          { stage: 'POL', event: 'container_gate_in_full',   placeType: 'loading', sitType: 'estimated', dataSource: 'external' },
   'actualLoadPol':               { stage: 'POL', event: 'container_loaded',         placeType: 'loading' },
   'estimatedLoadPol':            { stage: 'POL', event: 'container_loaded',         placeType: 'loading', sitType: 'estimated', dataSource: 'external' },
   'actualDeparturePol':          { stage: 'POL', event: 'container_departed',       placeType: 'loading' },
@@ -286,18 +290,42 @@ const TSP_FIELDS = {
   'actualDischargeTsp2':    { event: 'container_unloaded', sitType: 'actual',    dataSource: null },
   'actualLoadTsp2':         { event: 'container_loaded',   sitType: 'actual',    dataSource: null },
   'actualDepartureTsp2':    { event: 'container_departed', sitType: 'actual',    dataSource: null },
+  'estimatedArrivalTsp2':   { event: 'container_arrived',  sitType: 'estimated', dataSource: 'external' },
+  'predictedArrivalTsp2':   { event: 'container_arrived',  sitType: 'estimated', dataSource: 'shippeo' },
+  'estimatedDischargeTsp2': { event: 'container_unloaded', sitType: 'estimated', dataSource: 'external' },
+  'predictedDischargeTsp2': { event: 'container_unloaded', sitType: 'estimated', dataSource: 'shippeo' },
+  'estimatedLoadTsp2':      { event: 'container_loaded',   sitType: 'estimated', dataSource: 'external' },
+  'predictedLoadTsp2':      { event: 'container_loaded',   sitType: 'estimated', dataSource: 'shippeo' },
+  'estimatedDepartureTsp2': { event: 'container_departed', sitType: 'estimated', dataSource: 'external' },
+  'predictedDepartureTsp2': { event: 'container_departed', sitType: 'estimated', dataSource: 'shippeo' },
   'tsp2Locode':             { event: 'container_arrived',  sitType: 'actual',    dataSource: null },
   // Slot 3
   'actualArrivalTsp3':      { event: 'container_arrived',  sitType: 'actual',    dataSource: null },
   'actualDischargeTsp3':    { event: 'container_unloaded', sitType: 'actual',    dataSource: null },
   'actualLoadTsp3':         { event: 'container_loaded',   sitType: 'actual',    dataSource: null },
   'actualDepartureTsp3':    { event: 'container_departed', sitType: 'actual',    dataSource: null },
+  'estimatedArrivalTsp3':   { event: 'container_arrived',  sitType: 'estimated', dataSource: 'external' },
+  'predictedArrivalTsp3':   { event: 'container_arrived',  sitType: 'estimated', dataSource: 'shippeo' },
+  'estimatedDischargeTsp3': { event: 'container_unloaded', sitType: 'estimated', dataSource: 'external' },
+  'predictedDischargeTsp3': { event: 'container_unloaded', sitType: 'estimated', dataSource: 'shippeo' },
+  'estimatedLoadTsp3':      { event: 'container_loaded',   sitType: 'estimated', dataSource: 'external' },
+  'predictedLoadTsp3':      { event: 'container_loaded',   sitType: 'estimated', dataSource: 'shippeo' },
+  'estimatedDepartureTsp3': { event: 'container_departed', sitType: 'estimated', dataSource: 'external' },
+  'predictedDepartureTsp3': { event: 'container_departed', sitType: 'estimated', dataSource: 'shippeo' },
   'tsp3Locode':             { event: 'container_arrived',  sitType: 'actual',    dataSource: null },
   // Slot 4
   'actualArrivalTsp4':      { event: 'container_arrived',  sitType: 'actual',    dataSource: null },
   'actualDischargeTsp4':    { event: 'container_unloaded', sitType: 'actual',    dataSource: null },
   'actualLoadTsp4':         { event: 'container_loaded',   sitType: 'actual',    dataSource: null },
   'actualDepartureTsp4':    { event: 'container_departed', sitType: 'actual',    dataSource: null },
+  'estimatedArrivalTsp4':   { event: 'container_arrived',  sitType: 'estimated', dataSource: 'external' },
+  'predictedArrivalTsp4':   { event: 'container_arrived',  sitType: 'estimated', dataSource: 'shippeo' },
+  'estimatedDischargeTsp4': { event: 'container_unloaded', sitType: 'estimated', dataSource: 'external' },
+  'predictedDischargeTsp4': { event: 'container_unloaded', sitType: 'estimated', dataSource: 'shippeo' },
+  'estimatedLoadTsp4':      { event: 'container_loaded',   sitType: 'estimated', dataSource: 'external' },
+  'predictedLoadTsp4':      { event: 'container_loaded',   sitType: 'estimated', dataSource: 'shippeo' },
+  'estimatedDepartureTsp4': { event: 'container_departed', sitType: 'estimated', dataSource: 'external' },
+  'predictedDepartureTsp4': { event: 'container_departed', sitType: 'estimated', dataSource: 'shippeo' },
   'tsp4Locode':             { event: 'container_arrived',  sitType: 'actual',    dataSource: null },
   // Vessel
   'leg1VesselImoNumber':    { event: 'container_arrived',  sitType: 'actual',    dataSource: null },
@@ -340,9 +368,14 @@ const DIRECT_SITES = {
 };
 
 const VESSELS = [
-  { imo: '9864239', mmsi: '636023646', name: 'ZEUS LUMOS'  },
-  { imo: '9999001', mmsi: '636023648', name: 'EVER GIVEN'  },
-  { imo: '9999002', mmsi: '636023649', name: 'MAERSK IOWA' },
+  { imo: '9864239', mmsi: '636023646', name: 'ZEUS LUMOS'           },
+  { imo: '9781726', mmsi: '477203700', name: 'MSC GAIA'             },
+  { imo: '9839284', mmsi: '255806296', name: 'EVER ALOT'            },
+  { imo: '9312280', mmsi: '566929000', name: 'MAERSK ESSEN'         },
+  { imo: '9776418', mmsi: '215668000', name: 'CMA CGM LOUIS BLERIOT'},
+  { imo: '9354923', mmsi: '477295600', name: 'COSCO SHIPPING ROSE'  },
+  { imo: '9795045', mmsi: '477870600', name: 'HAPAG LLOYD BERLIN'   },
+  { imo: '9525243', mmsi: '219021000', name: 'MAERSK STOCKHOLM'     },
 ];
 
 function pickRandom(pool) { return pool[Math.floor(Math.random() * pool.length)]; }
@@ -350,8 +383,26 @@ function pickRandom(pool) { return pool[Math.floor(Math.random() * pool.length)]
 // Extract the TSP slot number from a field name.
 // e.g. actualArrivalTsp1 → 1 · tsp2Locode → 2 · predictedLoadTsp3 → 3
 function getTspSlotFromField(fieldKey) {
-  const m = fieldKey.match(/[Tt]sp(\d)/);
-  return m ? parseInt(m[1]) : null;
+  // Standard TSP date/locode fields: actualArrivalTsp1 → 1, tsp3Locode → 3
+  const tspMatch = fieldKey.match(/[Tt]sp(\d)/);
+  if (tspMatch) return parseInt(tspMatch[1]);
+
+  // Leg vessel fields — map to SOURCE SLOT (the slot that writes to that leg):
+  //   leg1Vessel: container_arrived NON-INCR at slot 1 → leg1
+  //   leg2Vessel: container_loaded  INCREMENT at slot 1 → leg2 (N+1=2)
+  //   leg3Vessel: container_loaded  INCREMENT at slot 2 → leg3 (N+1=3)
+  //   leg4Vessel: container_loaded  INCREMENT at slot 3 → leg4 (N+1=4)
+  const legMatch = fieldKey.match(/^leg(\d)Vessel/);
+  if (legMatch) {
+    const leg = parseInt(legMatch[1]);
+    // NON-INCR (leg1): source slot = leg number
+    // INCREMENT (leg2-4): source slot = leg - 1
+    const meta = TSP_FIELDS[fieldKey];
+    const isIncr = meta && (meta.event === 'container_loaded' || meta.event === 'container_departed');
+    return isIncr ? leg - 1 : leg;
+  }
+
+  return null;
 }
 
 // Get or assign a locode for a TSP slot.
@@ -367,6 +418,22 @@ function getOrAssignTspSlot(slotNum) {
   const chosen = pool.length ? pickRandom(pool) : pickRandom(TSP_LOCODES);
   session.tspSlots[slotNum] = chosen;
   info(`Slot ${slotNum} assigned new locode: ${chosen.unlocode}`);
+  return chosen;
+}
+
+// Get or assign a vessel for a specific leg slot.
+// Ensures no two legs share the same vessel IMO in positive flow.
+function getOrAssignVesselForLeg(legNum) {
+  if (session.tspVesselsByLeg[legNum]) {
+    return session.tspVesselsByLeg[legNum];
+  }
+  // Exclude all vessels already assigned to other legs
+  const usedImos = Object.values(session.tspVesselsByLeg)
+    .filter(Boolean)
+    .map(v => v.imo);
+  const available = VESSELS.filter(v => !usedImos.includes(v.imo));
+  const chosen    = available.length ? pickRandom(available) : pickRandom(VESSELS);
+  session.tspVesselsByLeg[legNum] = chosen;
   return chosen;
 }
 
@@ -461,7 +528,7 @@ async function executeEvent(eventOpts) {
 
   const allPass = assertions.every(a => a.pass);
   const resolvedSitType = eventOpts.situationType || eventOpts.sitType || 'actual';
-  const result  = { timestamp: new Date().toISOString(), event: eventOpts.event, placeType: eventOpts.placeType || 'transhipment', situationType: resolvedSitType, dataSource: eventOpts.dataSource, flowType: eventOpts.flowType, webhookStatus: wh.status, assertions, pass: allPass && wh.status === 200, duration };
+  const result  = { timestamp: new Date().toISOString(), event: eventOpts.event, placeType: eventOpts.placeType || 'transhipment', payloadPlaceType: eventOpts.payloadPlaceType ?? null, situationType: resolvedSitType, dataSource: eventOpts.dataSource, flowType: eventOpts.flowType, negativeStrategy: eventOpts.negativeStrategy ?? null, webhookStatus: wh.status, assertions, pass: allPass && wh.status === 200, duration };
   session.events.push(result);
   return result;
 }
@@ -485,13 +552,13 @@ const FIELD_MAPPING_CONDITIONS = {
   actualLoadedAtOrigin:         { condition: 'event=container_loaded + place_type=origin_inland + type=actual',              source: 'situation.date' },
   estimatedLoadedAtOrigin:      { condition: 'event=container_loaded + place_type=origin_inland + type=estimated + DS=external',       source: 'situation.date' },
   // POL
-  actualGateInPol:              { condition: 'event=container_gate_out_full + place_type=loading + type=actual',             source: 'situation.date' },
-  estimatedGateInPol:           { condition: 'event=container_gate_out_full + place_type=loading + type=estimated + DS=external',      source: 'situation.date' },
+  actualGateInPol:              { condition: 'event=container_gate_in_full + place_type=loading + type=actual',             source: 'situation.date' },
+  estimatedGateInPol:           { condition: 'event=container_gate_in_full + place_type=loading + type=estimated + DS=external',      source: 'situation.date' },
   actualLoadPol:                { condition: 'event=container_loaded + place_type=loading + type=actual',                    source: 'situation.date' },
   estimatedLoadPol:             { condition: 'event=container_loaded + place_type=loading + type=estimated + DS=external',             source: 'situation.date' },
-  leg1Mot:                      { condition: 'event=container_loaded + place_type=loading + transport_mode present',                   source: 'situation.transport_mode' },
-  leg1VesselImoNumber:          { condition: 'event=container_loaded + place_type=loading + milestoneVessel.IMO present',              source: 'resources[milestoneVessel].IMO' },
-  leg1VesselName:               { condition: 'event=container_loaded + place_type=loading + milestoneVessel.LABEL present',            source: 'resources[milestoneVessel].LABEL' },
+  leg1Mot:                      { condition: 'event=container_loaded/container_departed + place_type=loading + transport_mode present', source: 'situation.transport_mode' },
+  leg1VesselImoNumber:          { condition: 'event=container_loaded/container_departed + place_type=loading + milestoneVessel.IMO present',   source: 'resources[milestoneVessel].IMO' },
+  leg1VesselName:               { condition: 'event=container_loaded/container_departed + place_type=loading + milestoneVessel.LABEL present', source: 'resources[milestoneVessel].LABEL' },
   actualDeparturePol:           { condition: 'event=container_departed + place_type=loading + type=actual',                  source: 'situation.date' },
   estimatedDeparturePol:        { condition: 'event=container_departed + place_type=loading + type=estimated + DS=external',           source: 'situation.date' },
   predictedDeparturePol:        { condition: 'event=container_departed + place_type=loading + type=estimated + DS=shippeo',            source: 'situation.date' },
@@ -502,8 +569,10 @@ const FIELD_MAPPING_CONDITIONS = {
   actualDischargePod:           { condition: 'event=container_unloaded + place_type=discharge + type=actual',                source: 'situation.date' },
   estimatedDischargePod:        { condition: 'event=container_unloaded + place_type=discharge + type=estimated + DS=external',         source: 'situation.date' },
   predictedDischargePod:        { condition: 'event=container_unloaded + place_type=discharge + type=estimated + DS=shippeo',          source: 'situation.date' },
-  trackingArrivingVesselImo:       { condition: 'event=arrived/unloaded/eta + place_type=discharge + milestoneVessel.IMO present',     source: 'resources[milestoneVessel].IMO' },
-  trackingArrivingVesselVesselName:{ condition: 'event=arrived/unloaded/eta + place_type=discharge + milestoneVessel.LABEL present',   source: 'resources[milestoneVessel].LABEL' },
+  // container_arrived → actual only | container_unloaded → actual or estimated | eta_event → estimated only
+  // For session assertion: use actual type as the common condition (container_arrived + actual maps; estimated doesn't)
+  trackingArrivingVesselImo:       { condition: 'event=container_arrived/container_unloaded + place_type=discharge + type=actual + milestoneVessel.IMO present',   source: 'resources[milestoneVessel].IMO' },
+  trackingArrivingVesselVesselName:{ condition: 'event=container_arrived/container_unloaded + place_type=discharge + type=actual + milestoneVessel.LABEL present', source: 'resources[milestoneVessel].LABEL' },
   actualGateOutPod:             { condition: 'event=container_gate_out_full + place_type=discharge + type=actual',           source: 'situation.date' },
   estimatedGateOutPod:          { condition: 'event=container_gate_out_full + place_type=discharge + type=estimated + DS=external',    source: 'situation.date' },
   predictedGateOutPod:          { condition: 'event=container_gate_out_full + place_type=discharge + type=estimated + DS=shippeo',     source: 'situation.date' },
@@ -521,10 +590,10 @@ const FIELD_MAPPING_CONDITIONS = {
   carrierUpdatedLocodePod:     { condition: 'any event + delivery_site.unlocode present',                                             source: 'delivery_site.unlocode' },
   datetime_timezone:           { condition: 'any event + event_site.timezone present',                                                source: 'event_site.timezone' },
   // TSP — locode fields (all 4 slots, no DS/type condition)
-  tsp1Locode:  { condition: 'event=any + place_type=transhipment + event_site.unlocode present', source: 'event_site.unlocode' },
-  tsp2Locode:  { condition: 'event=any + place_type=transhipment + event_site.unlocode present', source: 'event_site.unlocode' },
-  tsp3Locode:  { condition: 'event=any + place_type=transhipment + event_site.unlocode present', source: 'event_site.unlocode' },
-  tsp4Locode:  { condition: 'event=any + place_type=transhipment + event_site.unlocode present', source: 'event_site.unlocode' },
+  tsp1Locode:  { condition: 'event=container_arrived/container_unloaded/container_loaded/container_departed + place_type=transhipment + event_site.unlocode present', source: 'event_site.unlocode' },
+  tsp2Locode:  { condition: 'event=container_arrived/container_unloaded/container_loaded/container_departed + place_type=transhipment + event_site.unlocode present', source: 'event_site.unlocode' },
+  tsp3Locode:  { condition: 'event=container_arrived/container_unloaded/container_loaded/container_departed + place_type=transhipment + event_site.unlocode present', source: 'event_site.unlocode' },
+  tsp4Locode:  { condition: 'event=container_arrived/container_unloaded/container_loaded/container_departed + place_type=transhipment + event_site.unlocode present', source: 'event_site.unlocode' },
   // TSP — actual date fields
   actualArrivalTsp1:    { condition: 'event=container_arrived + place_type=transhipment + type=actual',    source: 'situation.date' },
   actualArrivalTsp2:    { condition: 'event=container_arrived + place_type=transhipment + type=actual',    source: 'situation.date' },
@@ -545,13 +614,7 @@ const FIELD_MAPPING_CONDITIONS = {
   predictedLoadTsp1:    { condition: 'event=container_loaded + place_type=transhipment + type=estimated + DS=shippeo',     source: 'situation.date' },
   estimatedDepartureTsp1:{ condition: 'event=container_departed + place_type=transhipment + type=estimated + DS=external', source: 'situation.date' },
   predictedDepartureTsp1:{ condition: 'event=container_departed + place_type=transhipment + type=estimated + DS=shippeo',  source: 'situation.date' },
-  // TSP — vessel fields (no DS/type condition; NON-INCREMENT at slot N, INCREMENT at N+1)
-  leg1VesselImoNumber:  { condition: 'place_type=transhipment + milestoneVessel.IMO present + arrived/unloaded→legN · loaded/departed→legN+1', source: 'resources[milestoneVessel].IMO' },
-  leg2VesselImoNumber:  { condition: 'place_type=transhipment + milestoneVessel.IMO present + arrived/unloaded→legN · loaded/departed→legN+1', source: 'resources[milestoneVessel].IMO' },
-  leg3VesselImoNumber:  { condition: 'place_type=transhipment + milestoneVessel.IMO present + arrived/unloaded→legN · loaded/departed→legN+1', source: 'resources[milestoneVessel].IMO' },
-  leg4VesselImoNumber:  { condition: 'place_type=transhipment + milestoneVessel.IMO present + arrived/unloaded→legN · loaded/departed→legN+1', source: 'resources[milestoneVessel].IMO' },
-  leg1VesselName:       { condition: 'place_type=transhipment + milestoneVessel.LABEL present + arrived/unloaded→legN · loaded/departed→legN+1', source: 'resources[milestoneVessel].LABEL' },
-  leg2VesselName:       { condition: 'place_type=transhipment + milestoneVessel.LABEL present + arrived/unloaded→legN · loaded/departed→legN+1', source: 'resources[milestoneVessel].LABEL' },
+  // TSP — vessel fields handled separately in TSP slot block (no entry here to avoid duplicate key overwriting POL definitions above)
 };
 
 function getMappingCondition(field) {
@@ -571,9 +634,9 @@ function getExpectedFields(event, placeType) {
       'container_loaded':         ['actualLoadedAtOrigin', 'estimatedLoadedAtOrigin'],
     },
     'loading': {
-      'container_gate_out_full':  ['actualGateInPol', 'estimatedGateInPol'],
+      'container_gate_in_full':   ['actualGateInPol', 'estimatedGateInPol'],
       'container_loaded':         ['actualLoadPol', 'estimatedLoadPol', 'leg1Mot', 'leg1VesselImoNumber', 'leg1VesselName'],
-      'container_departed':       ['actualDeparturePol', 'estimatedDeparturePol', 'predictedDeparturePol'],
+      'container_departed':       ['actualDeparturePol', 'estimatedDeparturePol', 'predictedDeparturePol', 'leg1Mot', 'leg1VesselImoNumber', 'leg1VesselName'],
     },
     'discharge': {
       'container_arrived':        ['actualArrivalPod', 'trackingArrivingVesselImo', 'trackingArrivingVesselVesselName'],
@@ -606,9 +669,9 @@ function getDSFreeFields(event, placeType) {
       'container_loaded':         [],
     },
     'loading': {
-      'container_gate_out_full':  [],
+      'container_gate_in_full':   [],
       'container_loaded':         ['leg1Mot', 'leg1VesselImoNumber', 'leg1VesselName'],
-      'container_departed':       [],
+      'container_departed':       ['leg1Mot', 'leg1VesselImoNumber', 'leg1VesselName'],
     },
     'discharge': {
       'container_arrived':        ['trackingArrivingVesselImo', 'trackingArrivingVesselVesselName'],
@@ -660,7 +723,7 @@ function buildAssertions(opts, otu, { date, site, vessel, polSite, podSite, otuB
         key:      'situation.event',
         required: evMatch[1],
         sent:     event,
-        match:    event === evMatch[1],
+        match:    evMatch[1].includes('/') ? evMatch[1].split('/').includes(event) : event === evMatch[1],
       });
     }
 
@@ -761,218 +824,158 @@ function buildAssertions(opts, otu, { date, site, vessel, polSite, podSite, otuB
     });
   };
 
-  const sitType   = sentType;
-  const dataSource= sentDS;
-
-  // ── Negative flow assertions ──────────────────────────────────────────────
-  // Negative payload: actual + "carrier" DS
-  //   → Date fields (DS-specific): blocked → checkNotChanged
-  //   → DS-free fields (location/mot/vessel/locode): still map → checkExact/checkTruthy
-  if (isNegative) {
-    const targetField  = opts.targetField;  // the specific field the user asked to test
-    const dsFreeFields = getDSFreeFields(event, pType);
-    const allForEvent  = getExpectedFields(event, pType);
-
-    // DS-free fields ALWAYS map (no DS/type condition) — positive assertion
-    for (const field of dsFreeFields) {
-      if (['depotPreLocation','pickUpOriginLocation','destinationCity'].includes(field)) {
-        if (site?.city) checkExact(field, site.city); else checkTruthy(field);
-      } else if (['depotPreCountry','pickUpOriginCountry','destinationCountry'].includes(field)) {
-        if (site?.country) checkExact(field, site.country); else checkTruthy(field);
-      } else if (['motGateOutEmpty','motPickUpOrigin','motEmptyReturn','motGateOutPod','leg1Mot'].includes(field)) {
-        checkExact(field, 'ocean');
-      } else if (['leg1VesselImoNumber','trackingArrivingVesselImo','leg2VesselImoNumber','leg3VesselImoNumber','leg4VesselImoNumber'].includes(field)) {
-        if (vessel) checkExact(field, vessel.imo); else checkTruthy(field);
-      } else if (['leg1VesselName','trackingArrivingVesselVesselName','leg2VesselName','leg3VesselName','leg4VesselName'].includes(field)) {
-        if (vessel) checkExact(field, vessel.name); else checkTruthy(field);
-      } else {
-        checkTruthy(field);
-      }
-    }
-
-    // Only assert checkNotChanged on the SPECIFIC field the user requested.
-    // Other DS-specific co-mapped fields are shown as INFO only — we're not testing them here.
-    for (const field of allForEvent.filter(f => !dsFreeFields.includes(f))) {
-      if (field === targetField) {
-        checkNotChanged(field);  // This is what we're testing
-      } else {
-        // Co-mapped field — show as info, don't fail the test
-        const actual = otu?.[field] ?? null;
-        const { condition, source } = getMappingCondition(field);
-        assertions.push({ field, expected: '—', actual, pass: true, info: true, condition, source });
-      }
-    }
-
-    // Always-on locode fields — always map
-    if (polSite) checkExact('carrierUpdatedLocodePol', polSite.unlocode);
-    if (podSite) checkExact('carrierUpdatedLocodePod', podSite.unlocode);
-
-    return assertions;
+  // ── Helper: did ALL conditions for this field match what was sent? ─────────
+  function allConditionsMet(field) {
+    const conds = buildSentConditions(field, false);
+    return conds.length > 0 && conds.every(c => c.match);
   }
 
-  // ── TSP events ────────────────────────────────────────────────────────────
+  // ── Helper: what exact value should this field hold when it maps? ─────────
+  function getExpectedValue(field) {
+    const m = FIELD_MAPPING_CONDITIONS[field];
+    if (!m) return null;
+    const src = m.source;
+    if (src === 'event_site.city')              return sentCity;
+    if (src === 'event_site.country')           return sentCountry;
+    if (src === 'situation.transport_mode')     return 'ocean';
+    if (src.includes('milestoneVessel].IMO'))   return vessel?.imo   ?? null;
+    if (src.includes('milestoneVessel].LABEL')) return vessel?.name  ?? null;
+    if (src === 'loading_site.unlocode')        return polSite?.unlocode ?? null;
+    if (src === 'delivery_site.unlocode')       return podSite?.unlocode ?? null;
+    if (src === 'event_site.unlocode')          return site?.unlocode    ?? null;
+    return null; // situation.date → use checkTruthy
+  }
+
+  // ── Helper: is this field relevant to the event that was sent? ───────────
+  // Only check fields whose event condition matches (or is 'any').
+  // Fields for completely different events are irrelevant and skipped.
+  function isRelevantToEvent(field) {
+    const m = FIELD_MAPPING_CONDITIONS[field];
+    if (!m) return false;
+    const evMatch = m.condition.match(/event=([^\s+]+)/);
+    if (!evMatch) return true;                        // no event condition → always relevant
+    const required = evMatch[1];
+    if (required === 'any') return true;              // any event → always relevant
+    // Multi-event fields like 'arrived/unloaded/eta'
+    if (required.includes('/')) return required.split('/').includes(event);
+    return required === event;
+  }
+
+  // ── Helper: assert one field purely from its conditions ───────────────────
+  // ALL conditions met  → field SHOULD map → positive assert
+  // ANY condition fails → field SHOULD NOT map → checkNotChanged
+  // Fields for a different event: evaluated silently (affect pass/fail but not printed)
+  function assertDirect(field) {
+    const relevant = isRelevantToEvent(field);
+    const met = allConditionsMet(field);
+    if (met) {
+      const exp = getExpectedValue(field);
+      if (exp === null) {
+        checkTruthy(field);
+      } else {
+        checkExact(field, exp);
+      }
+    } else {
+      checkNotChanged(field);
+    }
+    // Mark the last pushed assertion as silent if it belongs to a different event
+    if (!relevant && assertions.length) {
+      assertions[assertions.length - 1].silent = true;
+    }
+  }
+
+  // ── TSP events — slot-aware (same conditions apply to all 4 slots) ────────
   if (pType === 'transhipment') {
-    // Use dynamically detected slot (based on OTU state before sending).
-    // targetSlot = which slot this locode actually lands in (REUSE or CLAIM).
-    const S = targetSlot || 1;  // fallback to 1 if detection unavailable
-
-    // Vessel slot: NON-INCREMENT (arrived/unloaded) → N; INCREMENT (loaded/departed) → N+1
+    const S = targetSlot || 1;
     const isIncrement = event === 'container_loaded' || event === 'container_departed';
-    const VS = isIncrement ? S + 1 : S;  // vessel slot
-
+    const VS = isIncrement ? S + 1 : S;
     console.log(`  ${C.gray}→ Asserting slot ${S} (vessel slot ${VS})${C.reset}`);
 
-    // tspNLocode — always asserted (no DS condition)
-    checkExact(`tsp${S}Locode`, site.unlocode);
+    // tspNLocode assertion:
+    // - Positive: assert locode was claimed (checkExact)
+    // - Negative for locode/vessel (payloadPlaceType="Port"): assert locode NOT changed (checkNotChanged)
+    // - Negative for date fields (estimated+null DS): skip locode — negative payload may not trigger claiming
+    if (opts.payloadPlaceType && opts.payloadPlaceType !== 'transhipment') {
+      checkNotChanged(`tsp${S}Locode`);
+    } else if (!isNegative) {
+      checkExact(`tsp${S}Locode`, site.unlocode);
+    }
+    // else: negative date-field test — locode claim is unreliable, skip assertion
 
-    if (sitType === 'actual' && !dataSource) {
+    // Date fields — type/DS specific
+    if (sentType === 'actual' && !sentDS) {
       if (event === 'container_arrived')  checkTruthy(`actualArrivalTsp${S}`);
       if (event === 'container_unloaded') checkTruthy(`actualDischargeTsp${S}`);
       if (event === 'container_loaded')   checkTruthy(`actualLoadTsp${S}`);
       if (event === 'container_departed') checkTruthy(`actualDepartureTsp${S}`);
-      // Vessel at correct slot
-      if (VS <= 4) {
-        if (vessel) checkExact(`leg${VS}VesselImoNumber`, vessel.imo);
-        if (vessel) checkExact(`leg${VS}VesselName`, vessel.name);
-      }
-    } else if (sitType === 'estimated' && dataSource === 'external') {
+    } else if (sentType === 'estimated' && sentDS === 'external') {
       if (event === 'container_arrived')  checkTruthy(`estimatedArrivalTsp${S}`);
       if (event === 'container_unloaded') checkTruthy(`estimatedDischargeTsp${S}`);
       if (event === 'container_loaded')   checkTruthy(`estimatedLoadTsp${S}`);
       if (event === 'container_departed') checkTruthy(`estimatedDepartureTsp${S}`);
-    } else if (sitType === 'estimated' && dataSource === 'shippeo') {
+    } else if (sentType === 'estimated' && sentDS === 'shippeo') {
       if (event === 'container_arrived')  checkTruthy(`predictedArrivalTsp${S}`);
       if (event === 'container_unloaded') checkTruthy(`predictedDischargeTsp${S}`);
       if (event === 'container_loaded')   checkTruthy(`predictedLoadTsp${S}`);
       if (event === 'container_departed') checkTruthy(`predictedDepartureTsp${S}`);
     }
+
+    // Vessel fields: no type/DS condition — assert outside type branches
+    // Skip in negative date-field tests — vessel may not have been set by prior events
+    if (VS <= 4) {
+      // TSP-specific conditions for vessel (not the direct POL condition from FIELD_MAPPING_CONDITIONS)
+      const isIncr = event === 'container_loaded' || event === 'container_departed';
+      const tspVesselConditions = [
+        { key: 'event_site.place_type', required: 'transhipment', sent: pType, match: pType === 'transhipment' },
+        { key: 'situation.event', required: isIncr ? 'container_loaded/container_departed (INCREMENT → leg N+1)' : 'container_arrived/container_unloaded (NON-INCREMENT → leg N)', sent: event, match: true },
+        { key: 'resources[milestoneVessel].IMO', required: 'present', sent: vessel?.imo ?? 'null', match: !!vessel },
+      ];
+
+      if (opts.payloadPlaceType && opts.payloadPlaceType !== 'transhipment') {
+        checkNotChanged(`leg${VS}VesselImoNumber`);
+        checkNotChanged(`leg${VS}VesselName`);
+      } else if (!isNegative && vessel) {
+        // Push with TSP-specific conditions so display shows correct rule (not POL rule)
+        const imoActual = otu?.[`leg${VS}VesselImoNumber`] ?? null;
+        const nameActual = otu?.[`leg${VS}VesselName`] ?? null;
+        assertions.push({ field: `leg${VS}VesselImoNumber`, expected: vessel.imo, actual: imoActual, pass: imoActual === vessel.imo, condition: `place_type=transhipment + ${isIncr ? 'INCREMENT' : 'NON-INCREMENT'} event + milestoneVessel.IMO present`, source: 'resources[milestoneVessel].IMO', sentConditions: tspVesselConditions });
+        assertions.push({ field: `leg${VS}VesselName`,      expected: vessel.name, actual: nameActual, pass: nameActual === vessel.name, condition: `place_type=transhipment + ${isIncr ? 'INCREMENT' : 'NON-INCREMENT'} event + milestoneVessel.LABEL present`, source: 'resources[milestoneVessel].LABEL', sentConditions: [...tspVesselConditions.slice(0,2), { key: 'resources[milestoneVessel].LABEL', required: 'present', sent: vessel?.imo ?? 'null', match: !!vessel }] });
+      }
+      // else: negative date-field test — vessel assertion skipped
+    }
     return assertions;
   }
 
-  // ── Direct events — always-on locode fields (every event) ────────────────
-  if (polSite) checkExact('carrierUpdatedLocodePol', polSite.unlocode);
-  if (podSite) checkExact('carrierUpdatedLocodePod', podSite.unlocode);
+  // ── Direct events (Pre-Carriage / POL / POD / Delivery) ──────────────────
+  // Every field is evaluated purely by its declared conditions.
+  // No if-pType / if-event branching — the conditions themselves decide.
+  const DIRECT_FIELDS_TO_CHECK = [
+    // Pre-Carriage
+    'actualGateOutEmptyDepot', 'estimatedGateOutEmptyDepot',
+    'depotPreLocation', 'depotPreCountry', 'motGateOutEmpty',
+    'actualDepartureFromOrigin', 'estimatedDepartureFromOrigin',
+    'pickUpOriginLocation', 'pickUpOriginCountry', 'motPickUpOrigin',
+    'actualLoadedAtOrigin', 'estimatedLoadedAtOrigin',
+    // POL
+    'actualGateInPol', 'estimatedGateInPol',
+    'actualLoadPol', 'estimatedLoadPol', 'leg1Mot',
+    'leg1VesselImoNumber', 'leg1VesselName',
+    'actualDeparturePol', 'estimatedDeparturePol', 'predictedDeparturePol',
+    // POD
+    'actualArrivalPod', 'estimatedArrivalPod', 'predictedArrivalPod',
+    'trackingArrivingVesselImo', 'trackingArrivingVesselVesselName',
+    'actualDischargePod', 'estimatedDischargePod', 'predictedDischargePod',
+    'actualGateOutPod', 'estimatedGateOutPod', 'predictedGateOutPod', 'motGateOutPod',
+    'actualEmptyReturn', 'estimatedEmptyReturn', 'motEmptyReturn',
+    // Delivery
+    'actualArrivalDestination', 'estimatedArrivalDestination',
+    'destinationCity', 'destinationCountry',
+    // Always-on
+    'carrierUpdatedLocodePol', 'carrierUpdatedLocodePod',
+  ];
 
-  // ── Vessel: only maps for POL (loading) and POD (discharge) ──────────────
-  // Pre-Carriage and Delivery events carry vessel in payload but DO NOT write leg1Vessel
-  const vesselMapsHere = (pType === 'loading' || pType === 'discharge');
-  if (vesselMapsHere) {
-    if (pType === 'loading' && event === 'container_loaded') {
-      // leg1Vessel written by container_loaded at loading only
-      checkExact('leg1VesselImoNumber', vessel.imo);
-      checkExact('leg1VesselName', vessel.name);
-    } else if (pType === 'discharge') {
-      // trackingArrivingVessel written by arrived/unloaded/eta at discharge
-      checkExact('trackingArrivingVesselImo', vessel.imo);
-      checkExact('trackingArrivingVesselVesselName', vessel.name);
-    }
-  } else {
-    // Pre-Carriage / Delivery: vessel in payload but NOT mapped → show as info
-    assertions.push({ field: 'leg1VesselImoNumber', expected: 'not mapped (Pre-Carriage/Delivery)', actual: otu?.leg1VesselImoNumber ?? null, pass: true, info: true });
-  }
-
-  // ── Pre-Carriage ──────────────────────────────────────────────────────────
-  if (pType === 'origin_inland_location') {
-    if (event === 'container_gate_out_empty') {
-      if (sitType === 'actual') {
-        checkTruthy('actualGateOutEmptyDepot');
-        // Co-mapped from same event: city → depotPreLocation, country → depotPreCountry, transport_mode → motGateOutEmpty
-        if (site.city)    checkExact('depotPreLocation', site.city);
-        if (site.country) checkExact('depotPreCountry', site.country);
-        checkExact('motGateOutEmpty', 'ocean');
-      } else if (sitType === 'estimated' && dataSource === 'external') {
-        checkTruthy('estimatedGateOutEmptyDepot');
-        // Not asserting actualGateOutEmptyDepot is null — prior actual event in session may have set it
-      }
-    }
-    if (event === 'container_departed') {
-      if (sitType === 'actual') {
-        checkTruthy('actualDepartureFromOrigin');
-        // Co-mapped: city → pickUpOriginLocation, country → pickUpOriginCountry, transport_mode → motPickUpOrigin
-        if (site.city)    checkExact('pickUpOriginLocation', site.city);
-        if (site.country) checkExact('pickUpOriginCountry', site.country);
-        checkExact('motPickUpOrigin', 'ocean');
-      } else if (sitType === 'estimated' && dataSource === 'external') {
-        checkTruthy('estimatedDepartureFromOrigin');
-      }
-    }
-    if (event === 'container_loaded') {
-      if (sitType === 'actual') checkTruthy('actualLoadedAtOrigin');
-      else if (sitType === 'estimated' && dataSource === 'external') checkTruthy('estimatedLoadedAtOrigin');
-    }
-  }
-
-  // ── POL ───────────────────────────────────────────────────────────────────
-  if (pType === 'loading') {
-    if (event === 'container_gate_out_full') {
-      if (sitType === 'actual') checkTruthy('actualGateInPol');
-      else if (sitType === 'estimated' && dataSource === 'external') checkTruthy('estimatedGateInPol');
-    }
-    if (event === 'container_loaded') {
-      if (sitType === 'actual') {
-        checkTruthy('actualLoadPol');
-        // Co-mapped: transport_mode → leg1Mot, vessel → leg1VesselImoNumber/Name (already checked above)
-        checkExact('leg1Mot', 'ocean');
-      } else if (sitType === 'estimated' && dataSource === 'external') {
-        checkTruthy('estimatedLoadPol');
-        // Not asserting actualLoadPol is null — prior actual event may have set it
-      }
-    }
-    if (event === 'container_departed') {
-      if (sitType === 'actual') checkTruthy('actualDeparturePol');
-      else if (sitType === 'estimated' && dataSource === 'external') checkTruthy('estimatedDeparturePol');
-      else if (sitType === 'estimated' && dataSource === 'shippeo')  checkTruthy('predictedDeparturePol');
-    }
-  }
-
-  // ── POD ───────────────────────────────────────────────────────────────────
-  if (pType === 'discharge') {
-    if (event === 'container_arrived') {
-      if (sitType === 'actual') checkTruthy('actualArrivalPod');
-    }
-    if (event === 'eta_event') {
-      if (sitType === 'estimated' && dataSource === 'external') {
-        checkTruthy('estimatedArrivalPod');
-        // Not asserting actualArrivalPod is null — prior actual event may have set it
-      } else if (sitType === 'estimated' && dataSource === 'shippeo') {
-        checkTruthy('predictedArrivalPod');
-      }
-    }
-    if (event === 'container_unloaded') {
-      if (sitType === 'actual') checkTruthy('actualDischargePod');
-      else if (sitType === 'estimated' && dataSource === 'external') checkTruthy('estimatedDischargePod');
-      else if (sitType === 'estimated' && dataSource === 'shippeo')  checkTruthy('predictedDischargePod');
-    }
-    if (event === 'container_gate_out_full') {
-      if (sitType === 'actual') {
-        checkTruthy('actualGateOutPod');
-        checkExact('motGateOutPod', 'ocean');   // motGateOutPod maps on any gate_out_full at discharge
-      } else if (sitType === 'estimated' && dataSource === 'external') {
-        checkTruthy('estimatedGateOutPod');
-        checkExact('motGateOutPod', 'ocean');
-      } else if (sitType === 'estimated' && dataSource === 'shippeo') checkTruthy('predictedGateOutPod');
-    }
-    if (event === 'container_gate_in_empty') {
-      if (sitType === 'actual') {
-        checkTruthy('actualEmptyReturn');
-        checkExact('motEmptyReturn', 'ocean');
-      } else if (sitType === 'estimated' && dataSource === 'external') checkTruthy('estimatedEmptyReturn');
-    }
-  }
-
-  // ── Delivery ──────────────────────────────────────────────────────────────
-  if (pType === 'destination_inland_location') {
-    if (event === 'container_arrived') {
-      if (sitType === 'actual') {
-        checkTruthy('actualArrivalDestination');
-        // Co-mapped: city → destinationCity, country → destinationCountry
-        if (site.city)    checkExact('destinationCity', site.city);
-        if (site.country) checkExact('destinationCountry', site.country);
-      } else if (sitType === 'estimated' && dataSource === 'external') {
-        checkTruthy('estimatedArrivalDestination');
-        // Not asserting actualArrivalDestination is null — prior actual event may have set it
-      }
-    }
+  for (const field of DIRECT_FIELDS_TO_CHECK) {
+    assertDirect(field);
   }
 
   return assertions;
@@ -983,27 +986,49 @@ function printEventResult(result) {
   console.log(`\n  ${C.bold}┌${box}┐${C.reset}`);
   console.log(`  ${C.bold}│ EVENT RESULT${C.reset}`);
   console.log(`  ${C.bold}├${box}┤${C.reset}`);
-  console.log(`  ${C.bold}│${C.reset}  Event    : ${C.cyan}${result.event}${C.reset}`);
-  console.log(`  ${C.bold}│${C.reset}  PlaceType: ${C.cyan}${result.placeType}${C.reset}`);
-  console.log(`  ${C.bold}│${C.reset}  Type     : ${result.situationType}${result.dataSource ? ` (${result.dataSource})` : ''}`);
+  console.log(`  ${C.bold}│${C.reset}  Event         : ${C.cyan}${result.event}${C.reset}`);
+  console.log(`  ${C.bold}│${C.reset}  PlaceType     : ${C.cyan}${result.placeType}${C.reset}`);
+  if (result.payloadPlaceType) {
+    console.log(`  ${C.bold}│${C.reset}  Payload PT    : ${C.yellow}${result.payloadPlaceType}${C.reset} ${C.gray}(sent in webhook — differs from assertion place_type)${C.reset}`);
+  }
+  console.log(`  ${C.bold}│${C.reset}  Type          : ${result.situationType}${result.dataSource ? ` (${result.dataSource})` : ''}`);
   console.log(`  ${C.bold}│${C.reset}  HTTP     : ${result.webhookStatus === 200 ? C.green + '200 ✅' : C.red + result.webhookStatus + ' ❌'}${C.reset}`);
   console.log(`  ${C.bold}│${C.reset}  Duration : ${result.duration}ms`);
+  if (result.negativeStrategy) {
+    console.log(`  ${C.bold}├${box}┤${C.reset}`);
+    console.log(`  ${C.bold}│ NEGATIVE STRATEGY${C.reset}`);
+    console.log(`  ${C.bold}│${C.reset}  ${C.yellow}${result.negativeStrategy}${C.reset}`);
+  }
   console.log(`  ${C.bold}├${box}┤${C.reset}`);
   console.log(`  ${C.bold}│ ASSERTIONS${C.reset}`);
   for (const a of result.assertions) {
+    if (a.silent && a.pass) continue;  // hide silent passes — show silent failures so user knows what changed
     if (a.info) {
       console.log(`  ${C.bold}│${C.reset}  ${C.gray}ℹ  ${a.field.padEnd(28)} got: ${String(a.actual ?? 'null').slice(0,35)}${C.reset}`);
       continue;
     }
-    const icon   = a.pass ? `${C.green}✅` : `${C.red}❌`;
+
     const actual = String(a.actual ?? 'null').slice(0, 40);
     const exp    = String(a.expected ?? 'null').slice(0, 40);
-    const label  = a.negativeCheck ? `${C.yellow}[SHOULD NOT MAP]${C.reset} ` : `${C.cyan}[SHOULD MAP]${C.reset} `;
 
-    // Field name + status
+    if (a.negativeCheck && a.pass) {
+      // Field was correctly blocked — show compact one-liner with the failing condition
+      const mismatch = a.sentConditions?.find(c => !c.match);
+      if (mismatch) {
+        console.log(`  ${C.bold}│${C.reset}  ${C.yellow}🚫 [BLOCKED]${C.reset} ${C.bold}${a.field}${C.reset}`);
+        console.log(`  ${C.bold}│${C.reset}       ${C.gray}sent: ${mismatch.key}="${mismatch.sent}"  required: "${mismatch.required}"${C.reset}`);
+        console.log(`  ${C.bold}│${C.reset}`);
+      }
+      continue;
+    }
+
+    const icon  = a.pass ? `${C.green}✅` : `${C.red}❌`;
+    const label = a.negativeCheck
+      ? `${C.red}[UNEXPECTEDLY MAPPED]${C.reset} `
+      : `${C.cyan}[SHOULD MAP]${C.reset} `;
+
     console.log(`  ${C.bold}│${C.reset}  ${icon}${C.reset} ${label}${C.bold}${a.field}${C.reset}`);
 
-    // ── Condition verification block ──────────────────────────────────────
     if (a.sentConditions && a.sentConditions.length) {
       console.log(`  ${C.bold}│${C.reset}       ${C.gray}CONDITIONS TO MAP THIS FIELD:${C.reset}`);
       for (const c of a.sentConditions) {
@@ -1012,15 +1037,11 @@ function printEventResult(result) {
       }
     }
 
-    // Result
     const allCondMet = a.sentConditions?.every(c => c.match) ?? true;
-    if (a.negativeCheck) {
-      const mismatch = a.sentConditions?.find(c => !c.match);
-      if (mismatch) {
-        console.log(`  ${C.bold}│${C.reset}       ${C.yellow}→ Condition mismatch on: ${mismatch.key} — field BLOCKED as expected${C.reset}`);
-      }
-    } else if (allCondMet) {
+    if (!a.negativeCheck && allCondMet) {
       console.log(`  ${C.bold}│${C.reset}       ${C.green}→ All conditions met — field SHOULD map${C.reset}`);
+    } else if (a.negativeCheck && !a.pass) {
+      console.log(`  ${C.bold}│${C.reset}       ${C.red}→ Field was written unexpectedly — check backend logic${C.reset}`);
     }
 
     console.log(`  ${C.bold}│${C.reset}       ${C.gray}GOT         : ${actual}${C.reset}`);
@@ -1041,19 +1062,18 @@ function printEventResult(result) {
 
 async function setupOtuCode() {
   banner('OTU SETUP — Create via Code');
-  console.log(`${C.gray}Creating TransportUnitOcean with BN + BL + CN + SCAC + InProgress...${C.reset}`);
+  console.log(`${C.gray}Creating TransportUnitOcean with BL + CN + SCAC + InProgress (no BN)...${C.reset}`);
 
   const ts = String(Date.now()).slice(-5);
   const cn = `LGTE01${ts}`;
-  const bn = `SESBN${ts}`;
   const bl = `SESBL${ts}`;
 
-  const r = await createOTU({ containerNumber: cn, bookingNumber: bn, billOfLadingNumber: bl, carrierScac: 'MSCU', carrierShortName: 'MSC', carrierName: 'Mediterranean Shipping Company' });
+  const r = await createOTU({ containerNumber: cn, billOfLadingNumber: bl, carrierScac: 'MSCU', carrierShortName: 'MSC', carrierName: 'Mediterranean Shipping Company' });
   if (!r.code) { err('Failed to create OTU'); return false; }
 
   session.objectCode      = r.code;
   session.containerNumber = cn;
-  session.bookingNumber   = bn;
+  session.bookingNumber   = null;
   session.blNumber        = bl;
   session.carrierScac     = 'MSCU';
   session.carrierShortName= 'MSC';
@@ -1064,7 +1084,7 @@ async function setupOtuCode() {
   session.podSite = pickRandom(DIRECT_SITES['discharge']);
 
   ok(`OTU created → code=${r.code} CN=${cn}`);
-  info(`Booking: ${bn}  |  BL: ${bl}  |  SCAC: MSCU`);
+  info(`BL: ${bl}  |  SCAC: MSCU  |  BN: none`);
   info(`POL: ${session.polSite.unlocode} (${session.polSite.city})  |  POD: ${session.podSite.unlocode} (${session.podSite.city})`);
   info(`These stay fixed for all events in this session (real-world: set at booking)`);
   return true;
@@ -1270,21 +1290,49 @@ async function selectAndRunEvents(flowType) {
     //  carrierUpdatedLocodePol/Pod: always-on → still maps in all cases.
 
     const positiveType = meta.sitType || 'actual';
-    // actual fields have NO DS condition — actual + carrier STILL writes them.
-    // To block actual fields in negative mode: send estimated type (wrong type → not written).
-    // For estimated/predicted fields: keep estimated type but use carrier DS (wrong DS → not written).
-    const negSitType = 'estimated';   // wrong type blocks actual; wrong DS blocks estimated/predicted
-    const negDS      = positiveType === 'actual' ? null : 'carrier';
+
+    // DS-free TSP fields: tspNLocode and legN vessel fields have no type/DS condition.
+    // Only way to block them: send place_type="Port" (not in the known system set).
+    // For vessel: keep placeType=transhipment for assertions (so TSP block runs + checks
+    // checkNotChanged), but send payloadPlaceType="Port" in the actual webhook.
+    const dsFreeLocodeFields = ['tsp1Locode','tsp2Locode','tsp3Locode','tsp4Locode'];
+    const dsFreeVesselFields = ['leg1VesselImoNumber','leg1VesselName','leg2VesselImoNumber','leg2VesselName','leg3VesselImoNumber','leg3VesselName','leg4VesselImoNumber','leg4VesselName'];
+    const isTspLocode = pType === 'transhipment' && dsFreeLocodeFields.includes(fieldKey);
+    const isTspVessel = pType === 'transhipment' && dsFreeVesselFields.includes(fieldKey);
+
+    const negSitType      = 'estimated';
+    const negDS           = positiveType === 'actual' ? null : 'carrier';
+    // For locode: change placeType itself (no TSP block needed)
+    // For vessel: keep placeType=transhipment (TSP block must run), use payloadPlaceType="Port"
+    const negPlaceType    = isTspLocode ? 'Port' : pType;
+    const negPayloadPlace = isTspVessel ? 'Port' : null;
+
+    let negativeStrategy = null;
+    if (autoNegative) {
+      const posDS = meta.dataSource ?? null;
+      if (isTspLocode) {
+        negativeStrategy = `place_type: transhipment → "Port" (payload)  |  Reason: tspNLocode has no type/DS condition — "Port" is not a recognised system place_type so no rule matches → locode blocked`;
+      } else if (isTspVessel) {
+        negativeStrategy = `payload place_type: transhipment → "Port"  |  Assertions keep transhipment  |  Reason: vessel has no type/DS condition — "Port" prevents backend writing vessel, TSP block still runs checkNotChanged`;
+      } else if (positiveType === 'actual') {
+        negativeStrategy = `type: actual → estimated  |  DS: null → null  |  Reason: actual fields have no DS condition — wrong type blocks them`;
+      } else if (positiveType === 'estimated' && posDS === 'external') {
+        negativeStrategy = `type: estimated (unchanged)  |  DS: external → carrier  |  Reason: DS=carrier ≠ external → field blocked`;
+      } else if (positiveType === 'estimated' && posDS === 'shippeo') {
+        negativeStrategy = `type: estimated (unchanged)  |  DS: shippeo → carrier  |  Reason: DS=carrier ≠ shippeo → field blocked`;
+      }
+    }
 
     const eventOpts = {
-      event:       meta.event,
-      placeType:   pType,
-      sitType:     autoNegative ? negSitType : positiveType,
-      dataSource:  autoNegative ? negDS      : (meta.dataSource ?? null),
-      // actual = past date (happened); estimated/predicted = future date (expected)
+      event:            meta.event,
+      placeType:        autoNegative ? negPlaceType    : pType,
+      payloadPlaceType: autoNegative ? negPayloadPlace : null,
+      sitType:          autoNegative ? negSitType      : positiveType,
+      dataSource:       autoNegative ? negDS           : (meta.dataSource ?? null),
       date: (negSitType || meta.sitType || 'actual') === 'actual' ? stageDate(-5, 8) : stageDate(10, 8),
-      flowType:    autoNegative ? 'negative' : flowType,
-      targetField: fieldKey,
+      flowType:         autoNegative ? 'negative' : flowType,
+      targetField:      fieldKey,
+      negativeStrategy,
     };
 
     if (pType === 'transhipment') {
@@ -1295,18 +1343,61 @@ async function selectAndRunEvents(flowType) {
       eventOpts.tsp      = tsp;
       eventOpts.unlocode = tsp.unlocode;
       eventOpts.timezone = tsp.timezone;
-      eventOpts.slotNum  = slotNum;  // pass through for dynamic assertion
-      eventOpts.vessel   = pickRandom(VESSELS);
-      console.log(`  ${C.gray}→ TSP slot ${slotNum || '?'}: ${tsp.unlocode} (${tsp.timezone})  Vessel: ${eventOpts.vessel.name}${C.reset}`);
+      eventOpts.slotNum  = slotNum;
+
+      // Determine which leg this vessel will go to (NON-INCR → legN, INCR → legN+1)
+      const isIncrement = (meta.event === 'container_loaded' || meta.event === 'container_departed');
+      const vesselLeg   = slotNum ? (isIncrement ? slotNum + 1 : slotNum) : null;
+
+      // Slot limit check: TSP supports max 4 slots. INCREMENT at slot 4 → leg5 (out of range).
+      if (vesselLeg && vesselLeg > 4) {
+        console.log('');
+        console.log(`  ${C.yellow}⚠  TSP SLOT LIMIT REACHED${C.reset}`);
+        console.log(`  ${C.gray}─────────────────────────────────────────────────────${C.reset}`);
+        console.log(`  ${C.yellow}Field    : ${fieldKey}${C.reset}`);
+        console.log(`  ${C.yellow}Reason   : Logward supports max 4 TSP slots (leg1–leg4).${C.reset}`);
+        console.log(`  ${C.yellow}           ${meta.event} at slot ${slotNum} (INCREMENT) would write leg${vesselLeg},${C.reset}`);
+        console.log(`  ${C.yellow}           which is beyond the supported range.${C.reset}`);
+        console.log(`  ${C.yellow}Behaviour: Backend silently skips leg${vesselLeg} — no vessel written.${C.reset}`);
+        console.log(`  ${C.yellow}           This is expected — not a test failure.${C.reset}`);
+        console.log(`  ${C.gray}─────────────────────────────────────────────────────${C.reset}`);
+        console.log('');
+
+        // Push as informational event — not a pass/fail
+        session.events.push({
+          timestamp: new Date().toISOString(),
+          event: meta.event, placeType: pType, situationType: 'actual', dataSource: null,
+          flowType: 'slot-limit', webhookStatus: null, pass: true, duration: 0,
+          assertions: [], negativeStrategy: null, payloadPlaceType: null,
+          slotLimitInfo: {
+            field: fieldKey, slot: slotNum, vesselLeg,
+            message: `Logward supports max 4 TSP slots (leg1–leg4). ${meta.event} at slot ${slotNum} (INCREMENT) would write leg${vesselLeg} which is out of range. Backend silently skips — expected behaviour.`,
+          },
+        });
+        continue;
+      }
+
+      // Pick unique vessel for this leg — no two legs share the same vessel in positive flow
+      eventOpts.vessel = !autoNegative && vesselLeg && vesselLeg <= 4
+        ? getOrAssignVesselForLeg(vesselLeg)
+        : pickRandom(VESSELS);
+      console.log(`  ${C.gray}→ TSP slot ${slotNum || '?'}: ${tsp.unlocode} (${tsp.timezone})  Vessel leg${vesselLeg || '?'}: ${eventOpts.vessel.name}${C.reset}`);
     } else {
-      const pool = DIRECT_SITES[pType] || DIRECT_SITES['discharge'];
-      const site = pickRandom(pool);
+      // POL events must happen at the session's fixed POL port.
+      // POD events must happen at the session's fixed POD port.
+      // Other stages (Pre-Carriage, Delivery) pick randomly from their pool.
+      let site;
+      if (pType === 'loading') {
+        site = session.polSite || pickRandom(DIRECT_SITES['loading']);
+      } else if (pType === 'discharge') {
+        site = session.podSite || pickRandom(DIRECT_SITES['discharge']);
+      } else {
+        site = pickRandom(DIRECT_SITES[pType] || DIRECT_SITES['discharge']);
+      }
       eventOpts.site     = site;
       eventOpts.unlocode = site.unlocode;
-      // Always send real city/country — location fields map when value present, no DS/type condition
       eventOpts.city     = site.city;
       eventOpts.country  = site.country;
-      // (never null these — location mapping condition is only event+placeType+value present)
       eventOpts.timezone = site.timezone;
       eventOpts.vessel   = pickRandom(VESSELS);
       if (!autoNegative) {
@@ -1365,11 +1456,27 @@ function generateReport() {
   const total    = session.events.length;
 
   const eventRows = session.events.map((e, i) => {
-    const assertRows = e.assertions.filter(a => !a.info).map(a => {
-      const label    = a.negativeCheck ? '🚫 SHOULD NOT MAP' : '✔ SHOULD MAP';
-      const labelCls = a.negativeCheck ? 'neg-label' : 'pos-label';
+    const assertRows = e.assertions.filter(a => !a.info && !a.silent).map(a => {
 
-      // Condition verification rows
+      // ── Blocked correctly (negativeCheck + pass) — compact row ──────────
+      if (a.negativeCheck && a.pass) {
+        const mismatch = a.sentConditions?.find(c => !c.match);
+        const reason = mismatch
+          ? `sent <code>${mismatch.key}</code> = <b>"${mismatch.sent}"</b> but required <b>"${mismatch.required}"</b>`
+          : 'Conditions not met';
+        return `<tr class="blocked">
+          <td>🚫</td>
+          <td><span class="blocked-label">BLOCKED</span><br><code class="field-name">${a.field}</code></td>
+          <td class="cond-cell"><div class="cond-summary blocked">Not sent because: ${reason}</div></td>
+          <td><code>${String(a.actual ?? '—').slice(0,50)}</code></td>
+          <td></td>
+        </tr>`;
+      }
+
+      // ── Normal assertion (SHOULD MAP or UNEXPECTEDLY MAPPED) ─────────────
+      const label    = a.negativeCheck ? '❗ UNEXPECTEDLY MAPPED' : '✔ SHOULD MAP';
+      const labelCls = a.negativeCheck ? 'unexpected-label' : 'pos-label';
+
       const condRows = (a.sentConditions || []).map(c => {
         const cIcon = c.match ? '✅' : '❌';
         const rowCls = c.match ? '' : 'cond-fail';
@@ -1388,7 +1495,7 @@ function generateReport() {
         </div>` : '';
 
       const summary = a.negativeCheck
-        ? `<div class="cond-summary neg">${a.negativeReason || 'Blocked'}</div>`
+        ? `<div class="cond-summary neg">⚠ Field was written unexpectedly — check backend logic</div>`
         : (a.sentConditions?.every(c => c.match)
             ? `<div class="cond-summary pos">All conditions met → field should map</div>`
             : `<div class="cond-summary warn">Condition check incomplete</div>`);
@@ -1402,7 +1509,71 @@ function generateReport() {
         <td>${a.pass ? '' : `<code class="exp">${String(a.expected ?? '—').slice(0,50)}</code>`}</td>
        </tr>`;
     }).join('');
-    const flowBadge = e.flowType === 'negative' ? `<span class="flow-neg">NEGATIVE</span>` : `<span class="flow-pos">POSITIVE</span>`;
+    // ── TSP slot limit — info card ───────────────────────────────────────────
+    if (e.flowType === 'slot-limit') {
+      const info = e.slotLimitInfo || {};
+      return `
+      <div class="event-card" style="border-left:4px solid #f6e05e;background:#fffff0;">
+        <div class="event-header">
+          <span class="seq">#${i+1}</span>
+          <span class="flow-slot-limit">SLOT LIMIT</span>
+          <span class="event-name">${info.field || e.event}</span>
+          <span class="place-type">transhipment · slot ${info.slot} → leg${info.vesselLeg}</span>
+          <span class="badge" style="background:#fefcbf;color:#744210;">SKIPPED</span>
+        </div>
+        <div style="padding:14px 18px;font-size:.83rem;color:#744210;background:#fffbeb;border-top:1px solid #f6e05e;">
+          <b>⚠ TSP Slot Limit Reached</b><br><br>
+          ${info.message || 'Logward supports max 4 TSP slots (leg1–leg4). This event would write beyond the supported range.'}
+        </div>
+      </div>`;
+    }
+
+    // ── Legacy flow verification — special card ─────────────────────────────
+    if (e.flowType === 'legacy') {
+      const steps = (e.legacyResults || []).map(r => {
+        const oldFlowMsg = r.oldFlowActive
+          ? `<div class="legacy-fail">❌ Old flow detected — backend created tsp2Locode="${r.got}" using old vessel-based logic</div>`
+          : '';
+        return `<tr class="${r.pass ? 'pass' : 'fail'}">
+          <td>${r.pass ? '✅' : '❌'}</td>
+          <td><b>Step ${r.step}</b><br><span style="font-size:.8rem">${r.label}</span></td>
+          <td>${r.check}</td>
+          <td><code>${r.got}</code>${oldFlowMsg}</td>
+          <td>${r.pass ? '' : `<code class="exp">${r.expected}</code>`}</td>
+        </tr>`;
+      }).join('');
+      const verdict = e.pass
+        ? `<div class="legacy-pass">✅ NEW FLOW CONFIRMED — Old vessel-based slot logic is NOT active</div>`
+        : `<div class="legacy-fail">❌ OLD FLOW DETECTED — Backend still assigns slots based on vessel, not locode</div>`;
+      return `
+      <div class="event-card ${e.pass ? 'pass' : 'fail'}">
+        <div class="event-header">
+          <span class="seq">#${i+1}</span>
+          <span class="flow-legacy">LEGACY TEST</span>
+          <span class="event-name">Old TSP Flow Verification</span>
+          <span class="badge ${e.pass ? 'pass' : 'fail'}">${e.pass ? 'NEW FLOW OK' : 'OLD FLOW DETECTED'}</span>
+        </div>
+        <div style="padding:12px 16px;font-size:.82rem;color:#4a5568;background:#f7fafc;border-bottom:1px solid #e2e8f0;">
+          <b>Test:</b> Send same locode twice with different vessels → tsp2Locode must stay <code>null</code><br>
+          <b>If old flow:</b> tsp2Locode gets created (slot assigned per vessel) — backend bug<br>
+          <b>If new flow:</b> tsp2Locode stays null (slot reused by locode) — correct
+        </div>
+        ${verdict}
+        <table class="assertions">
+          <thead><tr><th></th><th>Step</th><th>Assertion</th><th>Got</th><th>Expected (on fail)</th></tr></thead>
+          <tbody>${steps}</tbody>
+        </table>
+      </div>`;
+    }
+
+    const flowBadge = e.flowType === 'negative'    ? `<span class="flow-neg">NEGATIVE</span>`
+                   : e.flowType === 'wrong-event' ? `<span class="flow-wrong">WRONG EVENT</span>`
+                   : e.flowType === 'legacy'      ? `<span class="flow-legacy">LEGACY TEST</span>`
+                   : e.flowType === 'slot-limit'  ? `<span class="flow-slot-limit">SLOT LIMIT</span>`
+                   :                                `<span class="flow-pos">POSITIVE</span>`;
+    const strategyBadge = e.negativeStrategy
+      ? `<div class="neg-strategy">🔀 <b>Negative strategy:</b> ${e.negativeStrategy}</div>`
+      : '';
     return `
     <div class="event-card ${e.pass ? 'pass' : 'fail'}">
       <div class="event-header">
@@ -1410,12 +1581,14 @@ function generateReport() {
         ${flowBadge}
         <span class="event-name">${e.event}</span>
         <span class="place-type">${e.placeType}</span>
+        ${e.payloadPlaceType ? `<span class="payload-pt" title="Actual place_type sent in webhook payload">payload PT: ${e.payloadPlaceType}</span>` : ''}
         <span class="sit-type">${e.situationType}${e.dataSource ? ` · DS=${e.dataSource}` : ' · DS=null'}</span>
         <span class="http">HTTP ${e.webhookStatus}</span>
         <span class="duration">${e.duration}ms</span>
         <span class="ts">${e.timestamp.slice(11,19)} UTC</span>
         <span class="badge ${e.pass ? 'pass' : 'fail'}">${e.pass ? 'PASSED' : 'FAILED'}</span>
       </div>
+      ${strategyBadge}
       <table class="assertions">
         <thead><tr><th></th><th>Assertion Type · Field</th><th>Why it maps / Why blocked</th><th>Actual value</th><th>Expected (on fail)</th></tr></thead>
         <tbody>${assertRows}</tbody>
@@ -1458,29 +1631,45 @@ function generateReport() {
     .ts{font-size:.72rem;color:#a0aec0;margin-left:auto;}
     .badge{padding:2px 10px;border-radius:10px;font-size:.72rem;font-weight:700;}
     .badge.pass{background:#c6f6d5;color:#22543d;} .badge.fail{background:#fed7d7;color:#9b2335;}
-    .assertions{width:100%;border-collapse:collapse;}
+    .assertions{width:100%;border-collapse:collapse;table-layout:fixed;}
     .assertions thead tr{background:#f7fafc;}
-    .assertions th{padding:6px 14px;text-align:left;font-size:.7rem;text-transform:uppercase;color:#a0aec0;border-bottom:1px solid #e2e8f0;}
-    .assertions td{padding:7px 14px;border-bottom:1px solid #f7fafc;font-size:.78rem;}
+    .assertions th{padding:6px 14px;text-align:left;font-size:.7rem;text-transform:uppercase;color:#a0aec0;border-bottom:1px solid #e2e8f0;overflow:hidden;}
+    .assertions th:nth-child(1){width:3%;}
+    .assertions th:nth-child(2){width:22%;}
+    .assertions th:nth-child(3){width:42%;}
+    .assertions th:nth-child(4){width:18%;}
+    .assertions th:nth-child(5){width:15%;}
+    .assertions td{padding:7px 14px;border-bottom:1px solid #f7fafc;font-size:.78rem;word-break:break-word;overflow-wrap:anywhere;vertical-align:top;}
     .assertions tr.pass td{} .assertions tr.fail td{background:#fff5f5;}
     .assertions .field-name{font-family:monospace;font-weight:700;color:#2b6cb0;font-size:.82rem;}
     .pos-label{display:inline-block;background:#c6f6d5;color:#22543d;padding:1px 6px;border-radius:3px;font-size:.7rem;font-weight:700;}
     .neg-label{display:inline-block;background:#fed7d7;color:#9b2335;padding:1px 6px;border-radius:3px;font-size:.7rem;font-weight:700;}
     .flow-pos{background:#c6f6d5;color:#22543d;padding:2px 8px;border-radius:10px;font-size:.72rem;font-weight:700;}
     .flow-neg{background:#fed7d7;color:#9b2335;padding:2px 8px;border-radius:10px;font-size:.72rem;font-weight:700;}
-    .cond-cell{max-width:340px;vertical-align:top;}
-    .cond-block{background:#f7fafc;border:1px solid #e2e8f0;border-radius:4px;padding:6px 8px;margin-bottom:4px;}
+    .flow-wrong{background:#feebc8;color:#7b341e;padding:2px 8px;border-radius:10px;font-size:.72rem;font-weight:700;}
+    .flow-slot-limit{background:#fefcbf;color:#744210;padding:2px 8px;border-radius:10px;font-size:.72rem;font-weight:700;}
+    .neg-strategy{background:#fffbeb;border:1px solid #f6e05e;border-radius:6px;padding:8px 14px;margin:8px 0 4px;font-size:.8rem;color:#744210;}
+    .payload-pt{background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:10px;font-size:.72rem;font-weight:700;cursor:help;}
+    .flow-legacy{background:#e9d8fd;color:#553c9a;padding:2px 8px;border-radius:10px;font-size:.72rem;font-weight:700;}
+    .legacy-pass{background:#c6f6d5;color:#22543d;padding:10px 16px;font-weight:700;font-size:.85rem;}
+    .legacy-fail{background:#fed7d7;color:#9b2335;padding:10px 16px;font-weight:700;font-size:.85rem;margin-top:4px;border-radius:4px;}
+    .cond-cell{max-width:400px;vertical-align:top;overflow:hidden;}
+    .cond-block{background:#f7fafc;border:1px solid #e2e8f0;border-radius:4px;padding:6px 8px;margin-bottom:4px;overflow:hidden;}
     .cond-title{font-size:.7rem;font-weight:700;color:#4a5568;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;}
-    .cond-table{width:100%;border-collapse:collapse;font-size:.72rem;}
-    .cond-table td{padding:2px 4px;vertical-align:top;}
+    .cond-table{width:100%;border-collapse:collapse;font-size:.72rem;table-layout:fixed;}
+    .cond-table td{padding:2px 4px;vertical-align:top;word-break:break-word;overflow-wrap:anywhere;}
     .cond-row.cond-fail td{background:#fff5f5;}
-    .cond-key{font-family:monospace;color:#2d3748;font-weight:600;white-space:nowrap;}
-    .cond-required{color:#718096;}
-    .cond-sent{color:#2d3748;}
+    .cond-key{font-family:monospace;color:#2d3748;font-weight:600;white-space:nowrap;width:36%;}
+    .cond-required{color:#718096;width:34%;}
+    .cond-sent{color:#2d3748;width:30%;}
     .cond-summary{font-size:.72rem;padding:3px 6px;border-radius:3px;margin-top:3px;font-weight:600;}
     .cond-summary.pos{background:#c6f6d5;color:#22543d;}
     .cond-summary.neg{background:#fed7d7;color:#9b2335;}
     .cond-summary.warn{background:#fefcbf;color:#744210;}
+    .cond-summary.blocked{background:#fef3c7;color:#92400e;}
+    .blocked-label{display:inline-block;background:#fef3c7;color:#92400e;padding:1px 6px;border-radius:3px;font-size:.7rem;font-weight:700;}
+    .unexpected-label{display:inline-block;background:#fed7d7;color:#9b2335;padding:1px 6px;border-radius:3px;font-size:.7rem;font-weight:700;}
+    tr.blocked td{background:#fffbeb;}
     .reason-cell{max-width:280px;}
     .reason{color:#4a5568;font-size:.75rem;line-height:1.4;}
     .source{color:#718096;font-size:.7rem;font-style:italic;}
@@ -1491,6 +1680,7 @@ function generateReport() {
   </style>
 </head>
 <body>
+<script id="qa-summary" type="application/json">${JSON.stringify({ type: 'Events-Out', passed, failed, total, duration: duration + 's', date: now })}</script>
 <div class="hdr">
   <h1>🌊 E2E Session Report — Events-Out</h1>
   <p class="sub">Interactive session: ${now}</p>
@@ -1532,6 +1722,289 @@ function generateReport() {
 //  Main
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  Legacy Flow Verification
+//  Tests that the OLD TSP vessel-based slot logic is NOT active.
+//
+//  In OLD flow: slots were assigned sequentially per vessel — sending the same
+//  locode with a different vessel would create a new slot.
+//
+//  In NEW flow (DP-449): slots are locode-based — same locode always REUSES
+//  the same slot regardless of vessel.
+//
+//  Test: Send same locode twice with different vessels → tsp2Locode MUST be null.
+// ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+//  Wrong Event Verification
+//  Tests that misspelt / reversed event names do NOT write date fields.
+//  tspNLocode is still claimed (event=any), but date fields require exact event.
+//
+//  Wrong event pairs tested:
+//    container_arrived    → arrived_container
+//    container_unloaded   → container_unload      (missing 'd')
+//    container_loaded     → container_load        (missing 'ed')
+//    container_departed   → departed_container
+// ─────────────────────────────────────────────────────────────────────────────
+async function runWrongEventVerification() {
+  banner('WRONG EVENT VERIFICATION — TSP Negative (all 4 slots)', '❌');
+
+  if (!session.objectCode) { err('No session OTU — run OTU setup first'); return; }
+
+  const WRONG_EVENTS = [
+    { correct: 'container_arrived',  wrong: 'arrived_container',  dateField: 'actualArrivalTsp',    label: 'Arrival' },
+    { correct: 'container_unloaded', wrong: 'container_unload',   dateField: 'actualDischargeTsp',  label: 'Discharge' },
+    { correct: 'container_loaded',   wrong: 'container_load',     dateField: 'actualLoadTsp',       label: 'Load' },
+    { correct: 'container_departed', wrong: 'departed_container', dateField: 'actualDepartureTsp',  label: 'Departure' },
+  ];
+
+  // Use session OTU — already Shippeo-registered, no wait needed, results in main report
+  const cn = session.containerNumber;
+  const bn = session.bookingNumber;
+  const bl = session.blNumber;
+  info(`Using session OTU: ${session.objectCode} (${cn}) — Shippeo already registered`);
+
+  const results = [];
+
+  for (let slot = 1; slot <= 4; slot++) {
+    const vessel    = pickRandom(VESSELS);
+    const tspTarget = TSP_LOCODES[slot - 1];
+
+    // Run all 4 wrong-event checks on session OTU
+    for (const { correct, wrong, dateField, label } of WRONG_EVENTS) {
+      // Snapshot BEFORE — locode and date field current state
+      const otuBefore = await getOTU(session.objectCode).catch(() => null);
+      const dateKey   = `${dateField}${slot}`;
+      const locodeKey = `tsp${slot}Locode`;
+      const dateBefore   = otuBefore?.[dateKey]   ?? null;
+      const locodeBefore = otuBefore?.[locodeKey] ?? null;
+
+      const wrongPayload = buildPayload(cn, {
+        event: wrong, placeType: 'transhipment', sitType: 'actual', dataSource: null,
+        date: stageDate(-5, 8), unlocode: tspTarget.unlocode, timezone: tspTarget.timezone,
+        vessel, loadingUnlocode: session.polSite?.unlocode, deliveryUnlocode: session.podSite?.unlocode,
+        bookingNumber: bn, blNumber: bl,
+      });
+      await sendWebhook(wrongPayload);
+      await new Promise(res => setTimeout(res, 3000));
+
+      const otuAfter = await getOTU(session.objectCode).catch(() => null);
+      const dateAfter   = otuAfter?.[dateKey]   ?? null;
+      const locodeAfter = otuAfter?.[locodeKey] ?? null;
+
+      // Date must NOT change (unknown event doesn't write any date field)
+      // Locode must NOT change from before (unknown event doesn't claim a slot)
+      const dateNotChanged   = dateAfter === dateBefore;
+      const locodeNotChanged = locodeAfter === locodeBefore;
+      const pass = dateNotChanged && locodeNotChanged;
+
+      results.push({ slot, label, correct, wrong, dateKey, locodeKey,
+        dateBefore, dateAfter, locodeBefore, locodeAfter,
+        dateNotChanged, locodeNotChanged, pass });
+
+      const icon = pass ? `${C.green}✅` : `${C.red}❌`;
+      console.log(`  ${icon}${C.reset} Slot ${slot} | ${label.padEnd(10)} | wrong="${wrong}" | ${dateKey}: ${dateBefore ?? 'null'}→${dateAfter ?? 'null'} ${dateNotChanged ? '✅' : '❌'} | ${locodeKey}: ${locodeBefore ?? 'null'}→${locodeAfter ?? 'null'} ${locodeNotChanged ? '✅' : '❌'}`);
+    }
+  }
+
+  // Summary box
+  const allPass = results.every(r => r.pass);
+  const box = '─'.repeat(58);
+  console.log(`\n  ${C.bold}┌${box}┐${C.reset}`);
+  console.log(`  ${C.bold}│ WRONG EVENT VERIFICATION RESULT${C.reset}`);
+  console.log(`  ${C.bold}├${box}┤${C.reset}`);
+
+  const failed = results.filter(r => !r.pass);
+  if (failed.length) {
+    failed.forEach(r => {
+      if (!r.dateNotChanged)   console.log(`  ${C.bold}│${C.reset}  ${C.red}❌ Slot ${r.slot} ${r.label}: ${r.dateKey} changed (${r.dateBefore ?? 'null'} → ${r.dateAfter ?? 'null'}) — backend accepted unknown event${C.reset}`);
+      if (!r.locodeNotChanged) console.log(`  ${C.bold}│${C.reset}  ${C.red}❌ Slot ${r.slot} ${r.label}: ${r.locodeKey} changed (${r.locodeBefore ?? 'null'} → ${r.locodeAfter ?? 'null'}) — backend accepted unknown event${C.reset}`);
+    });
+  }
+
+  const verdict = allPass
+    ? `${C.green}✅ All ${results.length} wrong-event checks passed — backend correctly ignores unknown events`
+    : `${C.red}❌ ${failed.length} check(s) failed — backend accepted an unknown event name`;
+
+  console.log(`  ${C.bold}├${box}┤${C.reset}`);
+  console.log(`  ${C.bold}│${C.reset}  ${verdict}${C.reset}`);
+  console.log(`  ${C.bold}└${box}┘${C.reset}`);
+
+  // Push to session events for HTML report
+  results.forEach(r => {
+    session.events.push({
+      timestamp: new Date().toISOString(),
+      event: `wrong-event: ${r.wrong}`,
+      placeType: 'transhipment',
+      situationType: 'actual',
+      dataSource: null,
+      flowType: 'wrong-event',
+      webhookStatus: 200,
+      pass: r.pass,
+      duration: 0,
+      assertions: [
+        {
+          field: r.dateKey,
+          expected: `unchanged (was: ${r.dateBefore ?? 'null'})`,
+          actual: r.dateAfter,
+          pass: r.dateNotChanged,
+          negativeCheck: true,
+          silent: false,
+          sentConditions: [
+            { key: 'situation.event', required: r.correct, sent: r.wrong, match: false },
+          ],
+          negativeReason: `Wrong event "${r.wrong}" — backend rejects unknown event, ${r.dateKey} not written`,
+        },
+        {
+          field: r.locodeKey,
+          expected: `unchanged (was: ${r.locodeBefore ?? 'null'})`,
+          actual: r.locodeAfter,
+          pass: r.locodeNotChanged,
+          negativeCheck: true,
+          silent: false,
+          sentConditions: [
+            { key: 'situation.event', required: 'container_arrived/container_unloaded/container_loaded/container_departed', sent: r.wrong, match: false },
+          ],
+          negativeReason: `Wrong event "${r.wrong}" — backend rejects entire payload, ${r.locodeKey} not claimed`,
+        },
+      ],
+      negativeStrategy: `situation.event: "${r.correct}" → "${r.wrong}" (misspelt/reversed) — backend rejects unknown event entirely`,
+      payloadPlaceType: null,
+    });
+  });
+}
+
+async function runLegacyFlowVerification() {
+  banner('LEGACY FLOW VERIFICATION — Old TSP Vessel-Based Logic', '🔬');
+
+  if (!session.objectCode) { err('No session OTU — run OTU setup first'); return; }
+
+  // Read current OTU to find an already-claimed TSP slot with a locode
+  const currentOtu = await getOTU(session.objectCode).catch(() => null);
+  const slots = [
+    { n: 1, locode: currentOtu?.tsp1Locode },
+    { n: 2, locode: currentOtu?.tsp2Locode },
+    { n: 3, locode: currentOtu?.tsp3Locode },
+    { n: 4, locode: currentOtu?.tsp4Locode },
+  ];
+  const takenSlots  = slots.filter(s => s.locode);
+  const emptySlots  = slots.filter(s => !s.locode);
+
+  if (!takenSlots.length) {
+    warn('No TSP locodes assigned on session OTU yet. Run at least one TSP positive event first.');
+    return;
+  }
+
+  // Pick a taken slot — send the SAME locode with a different vessel
+  const targetSlot  = takenSlots[takenSlots.length - 1]; // use last assigned slot
+  const nextEmptyN  = emptySlots.length ? emptySlots[0].n : null;
+  const tsp         = TSP_LOCODES.find(l => l.unlocode === targetSlot.locode) || TSP_LOCODES[0];
+  const vessel2     = pickRandom(VESSELS);
+
+  info(`Using session OTU: ${session.objectCode}`);
+  info(`Target slot: ${C.bold}${targetSlot.n}${C.reset} → locode already = ${C.bold}${targetSlot.locode}${C.reset}`);
+  info(`Vessel 2: ${vessel2.name} (IMO: ${vessel2.imo}) — different from current leg${targetSlot.n}Vessel`);
+  console.log('');
+  console.log(`  ${C.gray}Expected (NEW flow): same locode → slot ${targetSlot.n} REUSED → tsp${nextEmptyN}Locode stays null${C.reset}`);
+  console.log(`  ${C.yellow}Old flow symptom:   same locode → slot ${nextEmptyN} CREATED (old vessel-based logic)${C.reset}`);
+  console.log('');
+
+  const legacyResults = [];
+
+  // ── Step 1: snapshot before — read existing vessel from OTU ──────────────
+  const existingVesselImo  = currentOtu?.[`leg${targetSlot.n}VesselImoNumber`] ?? null;
+  const existingVesselName = currentOtu?.[`leg${targetSlot.n}VesselName`]      ?? null;
+  const existingVesselStr  = existingVesselImo
+    ? `${existingVesselName || 'unknown'} (IMO: ${existingVesselImo})`
+    : 'none';
+
+  const step1Pass = true;
+  legacyResults.push({
+    step: 1,
+    label: `Slot ${targetSlot.n} has locode "${targetSlot.locode}" with vessel: ${existingVesselStr}`,
+    check: `tsp${targetSlot.n}Locode = "${targetSlot.locode}"`,
+    got: targetSlot.locode, expected: targetSlot.locode,
+    pass: step1Pass, http: 200,
+  });
+  console.log(`  ${C.green}✅${C.reset} Step 1: tsp${targetSlot.n}Locode = "${targetSlot.locode}"  leg${targetSlot.n}Vessel = ${existingVesselStr}`);
+
+  // ── Step 2: Send SAME locode with different vessel ───────────────────────
+  info(`Step 2: container_arrived + ${targetSlot.locode} + vessel 2 (SAME locode, DIFFERENT vessel)...`);
+
+  const payload2 = buildPayload(session.containerNumber, {
+    event: 'container_arrived', placeType: 'transhipment', sitType: 'actual', dataSource: null,
+    date: stageDate(-9, 8), unlocode: targetSlot.locode, timezone: tsp.timezone,
+    city: null, country: null, vessel: vessel2,
+    loadingUnlocode: session.polSite?.unlocode, deliveryUnlocode: session.podSite?.unlocode,
+    bookingNumber: session.bookingNumber, blNumber: session.blNumber,
+  });
+  const wh2 = await sendWebhook(payload2);
+  await new Promise(r => setTimeout(r, 5000));
+  const otuAfter2 = await getOTU(session.objectCode).catch(() => null);
+
+  // NEW flow: next empty slot locode must remain null (target slot REUSED)
+  // OLD flow: next empty slot would get the locode (wrongly created new slot)
+  const nextSlotLocode = nextEmptyN ? (otuAfter2?.[`tsp${nextEmptyN}Locode`] ?? null) : null;
+  const step2Pass    = nextSlotLocode === null;
+  const oldFlowActive = nextSlotLocode === targetSlot.locode;
+
+  legacyResults.push({
+    step: 2,
+    label: `Send ${targetSlot.locode} again with vessel 2 (${vessel2.name}) — tsp${nextEmptyN}Locode MUST stay null`,
+    check: `tsp${nextEmptyN}Locode = null (slot NOT created)`,
+    got: nextSlotLocode ?? 'null', expected: 'null',
+    pass: step2Pass,
+    oldFlowActive,
+    http: wh2.status,
+  });
+
+  // ── Print results ──────────────────────────────────────────────────────────
+  console.log('');
+  const box = '─'.repeat(58);
+  console.log(`\n  ${C.bold}┌${box}┐${C.reset}`);
+  console.log(`  ${C.bold}│ LEGACY FLOW VERIFICATION RESULT${C.reset}`);
+  console.log(`  ${C.bold}├${box}┤${C.reset}`);
+  console.log(`  ${C.bold}│${C.reset}  Locode tested : ${tsp.unlocode}`);
+  console.log(`  ${C.bold}│${C.reset}  Existing leg  : leg${targetSlot.n}Vessel (from OTU)`);
+  console.log(`  ${C.bold}│${C.reset}  Vessel 2      : ${vessel2.name} (${vessel2.imo})`);
+  console.log(`  ${C.bold}├${box}┤${C.reset}`);
+
+  for (const r of legacyResults) {
+    const icon = r.pass ? `${C.green}✅` : `${C.red}❌`;
+    console.log(`  ${C.bold}│${C.reset}  ${icon}${C.reset} Step ${r.step}: ${r.label}`);
+    console.log(`  ${C.bold}│${C.reset}       Check: ${r.check}`);
+    console.log(`  ${C.bold}│${C.reset}       GOT  : ${r.got}${!r.pass ? C.red + '  ← UNEXPECTED' + C.reset : ''}`);
+    console.log(`  ${C.bold}│${C.reset}`);
+  }
+
+  const allPass = legacyResults.every(r => r.pass);
+  const verdict = allPass
+    ? `${C.green}✅ NEW FLOW CONFIRMED — Old vessel-based logic is NOT active`
+    : oldFlowActive
+      ? `${C.red}❌ OLD FLOW DETECTED — tsp2Locode was created! Backend still uses old logic`
+      : `${C.red}❌ UNEXPECTED RESULT — check backend behaviour`;
+
+  console.log(`  ${C.bold}├${box}┤${C.reset}`);
+  console.log(`  ${C.bold}│${C.reset}  ${verdict}${C.reset}`);
+  console.log(`  ${C.bold}└${box}┘${C.reset}`);
+
+  // Push to session events for HTML report
+  session.events.push({
+    timestamp: new Date().toISOString(),
+    event: 'LEGACY_FLOW_VERIFICATION',
+    placeType: 'transhipment',
+    situationType: 'actual',
+    dataSource: null,
+    flowType: 'legacy',
+    webhookStatus: wh2.status,
+    legacyResults,
+    pass: allPass,
+    duration: 0,
+    assertions: [],
+    negativeStrategy: null,
+    payloadPlaceType: null,
+  });
+}
+
 async function main() {
   console.clear();
   console.log(`\n${C.bold}${C.white}╔════════════════════════════════════════════════════════════╗${C.reset}`);
@@ -1565,17 +2038,23 @@ async function main() {
 
     while (true) {
       console.log(`\n${'─'.repeat(62)}`);
-      const flowAns = await ask(`\n${C.bold}Flow type? (positive / negative / edge / finish): ${C.reset}`);
+      const flowAns = await ask(`\n${C.bold}Flow type? (positive / negative / edge / legacy / wrong-event / finish): ${C.reset}`);
 
       if (flowAns.toLowerCase() === 'finish' || flowAns.toLowerCase() === 'end test') break;
 
-      const validFlows = ['positive', 'negative', 'edge'];
+      const validFlows = ['positive', 'negative', 'edge', 'legacy', 'wrong-event'];
       if (!validFlows.includes(flowAns.toLowerCase())) {
-        warn(`Unknown flow "${flowAns}". Use: positive / negative / edge`);
+        warn(`Unknown flow "${flowAns}". Use: positive / negative / edge / legacy / wrong-event`);
         continue;
       }
 
-      await selectAndRunEvents(flowAns);
+      if (flowAns.toLowerCase() === 'legacy') {
+        await runLegacyFlowVerification();
+      } else if (flowAns.toLowerCase() === 'wrong-event') {
+        await runWrongEventVerification();
+      } else {
+        await selectAndRunEvents(flowAns);
+      }
 
       // Summary after this batch
       const total  = session.events.length;

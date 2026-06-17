@@ -545,8 +545,11 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
       return pool[Math.floor(Math.random() * pool.length)];
     }
 
-    function pickVesselNew(excludeImo = null) {
-      const pool = TSP_VESSELS_NEW.filter(v => v.imo !== excludeImo);
+    // excludeImos accepts a single IMO string OR an array of IMO strings.
+    // In positive flow: no two legs share the same vessel — pass all already-used IMOs.
+    function pickVesselNew(excludeImos = null) {
+      const excluded = Array.isArray(excludeImos) ? excludeImos : (excludeImos ? [excludeImos] : []);
+      const pool = TSP_VESSELS_NEW.filter(v => !excluded.includes(v.imo));
       return pool[Math.floor(Math.random() * pool.length)];
     }
 
@@ -980,19 +983,398 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
       test('NEW-P-17 | tsp1Locode set · tsp2Locode null (no new slot)', () => { expect(otu?.tsp2Locode ?? null).toBeNull(); });
     });
 
+    // ── NEW-P: Estimated & Predicted — TSP Slot 2 ───────────────────────────
+
+    test.describe('NEW-P-18 | container_arrived estimated external → estimatedArrivalTsp2', () => {
+      let otu = null; const ref = generateContainerRef(); let tsp1, tsp2, vessel;
+      test.beforeAll(async () => {
+        tsp1 = TSP_LOCODES_NEW[0]; tsp2 = TSP_LOCODES_NEW[1]; vessel = pickVesselNew();
+        const r = await createTspOtu(ref);
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: null });
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel, event: 'container_arrived', date: SD.estArr, type: 'estimated', dataSource: 'external' }));
+      });
+      test.beforeEach(() => { if (!otu) test.skip(); });
+      test('NEW-P-18 | estimatedArrivalTsp2 = local time', () => { expect(otu?.estimatedArrivalTsp2).toBe(toLocalTime(SD.estArr, tsp2.timezone)); });
+      test('NEW-P-18 | actualArrivalTsp2 null', () => { expect(otu?.actualArrivalTsp2 ?? null).toBeNull(); });
+      test('NEW-P-18 | predictedArrivalTsp2 null', () => { expect(otu?.predictedArrivalTsp2 ?? null).toBeNull(); });
+      test('NEW-P-18 | tsp2Locode set', () => { expect(otu?.tsp2Locode).toBe(tsp2.unlocode); });
+      test('NEW-P-18 | leg2VesselImoNumber set (NON-INCREMENT N=2)', () => { expect(otu?.leg2VesselImoNumber).toBe(vessel.imo); });
+    });
+
+    test.describe('NEW-P-19 | container_arrived estimated shippeo → predictedArrivalTsp2', () => {
+      let otu = null; const ref = generateContainerRef(); let tsp1, tsp2, vessel;
+      test.beforeAll(async () => {
+        tsp1 = TSP_LOCODES_NEW[0]; tsp2 = TSP_LOCODES_NEW[1]; vessel = pickVesselNew();
+        const r = await createTspOtu(ref);
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: null });
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel, event: 'container_arrived', date: SD.predArr, type: 'estimated', dataSource: 'shippeo' }));
+      });
+      test.beforeEach(() => { if (!otu) test.skip(); });
+      test('NEW-P-19 | predictedArrivalTsp2 = local time', () => { expect(otu?.predictedArrivalTsp2).toBe(toLocalTime(SD.predArr, tsp2.timezone)); });
+      test('NEW-P-19 | estimatedArrivalTsp2 null', () => { expect(otu?.estimatedArrivalTsp2 ?? null).toBeNull(); });
+      test('NEW-P-19 | actualArrivalTsp2 null', () => { expect(otu?.actualArrivalTsp2 ?? null).toBeNull(); });
+      test('NEW-P-19 | tsp2Locode set', () => { expect(otu?.tsp2Locode).toBe(tsp2.unlocode); });
+    });
+
+    test.describe('NEW-P-20 | container_unloaded estimated external → estimatedDischargeTsp2', () => {
+      let otu = null; const ref = generateContainerRef(); let tsp1, tsp2, vessel;
+      test.beforeAll(async () => {
+        tsp1 = TSP_LOCODES_NEW[0]; tsp2 = TSP_LOCODES_NEW[1]; vessel = pickVesselNew();
+        const r = await createTspOtu(ref);
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: null });
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel, event: 'container_unloaded', date: SD.estDis, type: 'estimated', dataSource: 'external' }));
+      });
+      test.beforeEach(() => { if (!otu) test.skip(); });
+      test('NEW-P-20 | estimatedDischargeTsp2 = local time', () => { expect(otu?.estimatedDischargeTsp2).toBe(toLocalTime(SD.estDis, tsp2.timezone)); });
+      test('NEW-P-20 | actualDischargeTsp2 null', () => { expect(otu?.actualDischargeTsp2 ?? null).toBeNull(); });
+      test('NEW-P-20 | tsp2Locode set', () => { expect(otu?.tsp2Locode).toBe(tsp2.unlocode); });
+      test('NEW-P-20 | leg2VesselImoNumber set (NON-INCREMENT)', () => { expect(otu?.leg2VesselImoNumber).toBe(vessel.imo); });
+    });
+
+    test.describe('NEW-P-21 | container_unloaded estimated shippeo → predictedDischargeTsp2', () => {
+      let otu = null; const ref = generateContainerRef(); let tsp1, tsp2, vessel;
+      test.beforeAll(async () => {
+        tsp1 = TSP_LOCODES_NEW[0]; tsp2 = TSP_LOCODES_NEW[1]; vessel = pickVesselNew();
+        const r = await createTspOtu(ref);
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: null });
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel, event: 'container_unloaded', date: SD.estDis, type: 'estimated', dataSource: 'shippeo' }));
+      });
+      test.beforeEach(() => { if (!otu) test.skip(); });
+      test('NEW-P-21 | predictedDischargeTsp2 = local time', () => { expect(otu?.predictedDischargeTsp2).toBe(toLocalTime(SD.estDis, tsp2.timezone)); });
+      test('NEW-P-21 | estimatedDischargeTsp2 null', () => { expect(otu?.estimatedDischargeTsp2 ?? null).toBeNull(); });
+      test('NEW-P-21 | tsp2Locode set', () => { expect(otu?.tsp2Locode).toBe(tsp2.unlocode); });
+    });
+
+    test.describe('NEW-P-22 | container_loaded estimated external → estimatedLoadTsp2 · vessel at N+1=3', () => {
+      let otu = null; const ref = generateContainerRef(); let tsp1, tsp2, vessel;
+      test.beforeAll(async () => {
+        tsp1 = TSP_LOCODES_NEW[0]; tsp2 = TSP_LOCODES_NEW[1]; vessel = pickVesselNew();
+        const r = await createTspOtu(ref);
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: null });
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel, event: 'container_loaded', date: SD.estLd, type: 'estimated', dataSource: 'external' }));
+      });
+      test.beforeEach(() => { if (!otu) test.skip(); });
+      test('NEW-P-22 | estimatedLoadTsp2 = local time', () => { expect(otu?.estimatedLoadTsp2).toBe(toLocalTime(SD.estLd, tsp2.timezone)); });
+      test('NEW-P-22 | actualLoadTsp2 null', () => { expect(otu?.actualLoadTsp2 ?? null).toBeNull(); });
+      test('NEW-P-22 | tsp2Locode set', () => { expect(otu?.tsp2Locode).toBe(tsp2.unlocode); });
+      test('NEW-P-22 | leg3VesselImoNumber = vessel (INCREMENT N+1=3)', () => { expect(otu?.leg3VesselImoNumber).toBe(vessel.imo); });
+      test('NEW-P-22 | leg2VesselImoNumber null', () => { expect(otu?.leg2VesselImoNumber ?? null).toBeNull(); });
+    });
+
+    test.describe('NEW-P-23 | container_loaded estimated shippeo → predictedLoadTsp2 · vessel at N+1=3', () => {
+      let otu = null; const ref = generateContainerRef(); let tsp1, tsp2, vessel;
+      test.beforeAll(async () => {
+        tsp1 = TSP_LOCODES_NEW[0]; tsp2 = TSP_LOCODES_NEW[1]; vessel = pickVesselNew();
+        const r = await createTspOtu(ref);
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: null });
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel, event: 'container_loaded', date: SD.estLd, type: 'estimated', dataSource: 'shippeo' }));
+      });
+      test.beforeEach(() => { if (!otu) test.skip(); });
+      test('NEW-P-23 | predictedLoadTsp2 = local time', () => { expect(otu?.predictedLoadTsp2).toBe(toLocalTime(SD.estLd, tsp2.timezone)); });
+      test('NEW-P-23 | estimatedLoadTsp2 null', () => { expect(otu?.estimatedLoadTsp2 ?? null).toBeNull(); });
+      test('NEW-P-23 | leg3VesselImoNumber = vessel (INCREMENT)', () => { expect(otu?.leg3VesselImoNumber).toBe(vessel.imo); });
+    });
+
+    test.describe('NEW-P-24 | container_departed estimated external → estimatedDepartureTsp2 · vessel at N+1=3', () => {
+      let otu = null; const ref = generateContainerRef(); let tsp1, tsp2, vessel;
+      test.beforeAll(async () => {
+        tsp1 = TSP_LOCODES_NEW[0]; tsp2 = TSP_LOCODES_NEW[1]; vessel = pickVesselNew();
+        const r = await createTspOtu(ref);
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: null });
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel, event: 'container_departed', date: SD.estDep, type: 'estimated', dataSource: 'external' }));
+      });
+      test.beforeEach(() => { if (!otu) test.skip(); });
+      test('NEW-P-24 | estimatedDepartureTsp2 = local time', () => { expect(otu?.estimatedDepartureTsp2).toBe(toLocalTime(SD.estDep, tsp2.timezone)); });
+      test('NEW-P-24 | actualDepartureTsp2 null', () => { expect(otu?.actualDepartureTsp2 ?? null).toBeNull(); });
+      test('NEW-P-24 | leg3VesselImoNumber = vessel (INCREMENT)', () => { expect(otu?.leg3VesselImoNumber).toBe(vessel.imo); });
+    });
+
+    test.describe('NEW-P-25 | container_departed estimated shippeo → predictedDepartureTsp2 · vessel at N+1=3', () => {
+      let otu = null; const ref = generateContainerRef(); let tsp1, tsp2, vessel;
+      test.beforeAll(async () => {
+        tsp1 = TSP_LOCODES_NEW[0]; tsp2 = TSP_LOCODES_NEW[1]; vessel = pickVesselNew();
+        const r = await createTspOtu(ref);
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: null });
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel, event: 'container_departed', date: SD.estDep, type: 'estimated', dataSource: 'shippeo' }));
+      });
+      test.beforeEach(() => { if (!otu) test.skip(); });
+      test('NEW-P-25 | predictedDepartureTsp2 = local time', () => { expect(otu?.predictedDepartureTsp2).toBe(toLocalTime(SD.estDep, tsp2.timezone)); });
+      test('NEW-P-25 | estimatedDepartureTsp2 null', () => { expect(otu?.estimatedDepartureTsp2 ?? null).toBeNull(); });
+      test('NEW-P-25 | leg3VesselImoNumber = vessel (INCREMENT)', () => { expect(otu?.leg3VesselImoNumber).toBe(vessel.imo); });
+    });
+
+    // ── NEW-P: Estimated & Predicted — TSP Slot 3 ───────────────────────────
+
+    test.describe('NEW-P-26 | container_arrived estimated external → estimatedArrivalTsp3', () => {
+      let otu = null; const ref = generateContainerRef(); let tsp1, tsp2, tsp3, vessel;
+      test.beforeAll(async () => {
+        tsp1 = TSP_LOCODES_NEW[0]; tsp2 = TSP_LOCODES_NEW[1]; tsp3 = TSP_LOCODES_NEW[2]; vessel = pickVesselNew();
+        const r = await createTspOtu(ref);
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: null });
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel, event: 'container_arrived', date: SD.arrTsp2, type: 'actual', dataSource: null });
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp3, vessel, event: 'container_arrived', date: SD.estArr, type: 'estimated', dataSource: 'external' }));
+      });
+      test.beforeEach(() => { if (!otu) test.skip(); });
+      test('NEW-P-26 | estimatedArrivalTsp3 = local time', () => { expect(otu?.estimatedArrivalTsp3).toBe(toLocalTime(SD.estArr, tsp3.timezone)); });
+      test('NEW-P-26 | actualArrivalTsp3 null', () => { expect(otu?.actualArrivalTsp3 ?? null).toBeNull(); });
+      test('NEW-P-26 | predictedArrivalTsp3 null', () => { expect(otu?.predictedArrivalTsp3 ?? null).toBeNull(); });
+      test('NEW-P-26 | tsp3Locode set', () => { expect(otu?.tsp3Locode).toBe(tsp3.unlocode); });
+      test('NEW-P-26 | leg3VesselImoNumber set (NON-INCREMENT N=3)', () => { expect(otu?.leg3VesselImoNumber).toBe(vessel.imo); });
+    });
+
+    test.describe('NEW-P-27 | container_arrived estimated shippeo → predictedArrivalTsp3', () => {
+      let otu = null; const ref = generateContainerRef(); let tsp1, tsp2, tsp3, vessel;
+      test.beforeAll(async () => {
+        tsp1 = TSP_LOCODES_NEW[0]; tsp2 = TSP_LOCODES_NEW[1]; tsp3 = TSP_LOCODES_NEW[2]; vessel = pickVesselNew();
+        const r = await createTspOtu(ref);
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: null });
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel, event: 'container_arrived', date: SD.arrTsp2, type: 'actual', dataSource: null });
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp3, vessel, event: 'container_arrived', date: SD.predArr, type: 'estimated', dataSource: 'shippeo' }));
+      });
+      test.beforeEach(() => { if (!otu) test.skip(); });
+      test('NEW-P-27 | predictedArrivalTsp3 = local time', () => { expect(otu?.predictedArrivalTsp3).toBe(toLocalTime(SD.predArr, tsp3.timezone)); });
+      test('NEW-P-27 | estimatedArrivalTsp3 null', () => { expect(otu?.estimatedArrivalTsp3 ?? null).toBeNull(); });
+      test('NEW-P-27 | tsp3Locode set', () => { expect(otu?.tsp3Locode).toBe(tsp3.unlocode); });
+    });
+
+    test.describe('NEW-P-28 | container_unloaded estimated external → estimatedDischargeTsp3', () => {
+      let otu = null; const ref = generateContainerRef(); let tsp1, tsp2, tsp3, vessel;
+      test.beforeAll(async () => {
+        tsp1 = TSP_LOCODES_NEW[0]; tsp2 = TSP_LOCODES_NEW[1]; tsp3 = TSP_LOCODES_NEW[2]; vessel = pickVesselNew();
+        const r = await createTspOtu(ref);
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: null });
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel, event: 'container_arrived', date: SD.arrTsp2, type: 'actual', dataSource: null });
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp3, vessel, event: 'container_unloaded', date: SD.estDis, type: 'estimated', dataSource: 'external' }));
+      });
+      test.beforeEach(() => { if (!otu) test.skip(); });
+      test('NEW-P-28 | estimatedDischargeTsp3 = local time', () => { expect(otu?.estimatedDischargeTsp3).toBe(toLocalTime(SD.estDis, tsp3.timezone)); });
+      test('NEW-P-28 | actualDischargeTsp3 null', () => { expect(otu?.actualDischargeTsp3 ?? null).toBeNull(); });
+      test('NEW-P-28 | tsp3Locode set', () => { expect(otu?.tsp3Locode).toBe(tsp3.unlocode); });
+      test('NEW-P-28 | leg3VesselImoNumber set (NON-INCREMENT)', () => { expect(otu?.leg3VesselImoNumber).toBe(vessel.imo); });
+    });
+
+    test.describe('NEW-P-29 | container_unloaded estimated shippeo → predictedDischargeTsp3', () => {
+      let otu = null; const ref = generateContainerRef(); let tsp1, tsp2, tsp3, vessel;
+      test.beforeAll(async () => {
+        tsp1 = TSP_LOCODES_NEW[0]; tsp2 = TSP_LOCODES_NEW[1]; tsp3 = TSP_LOCODES_NEW[2]; vessel = pickVesselNew();
+        const r = await createTspOtu(ref);
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: null });
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel, event: 'container_arrived', date: SD.arrTsp2, type: 'actual', dataSource: null });
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp3, vessel, event: 'container_unloaded', date: SD.estDis, type: 'estimated', dataSource: 'shippeo' }));
+      });
+      test.beforeEach(() => { if (!otu) test.skip(); });
+      test('NEW-P-29 | predictedDischargeTsp3 = local time', () => { expect(otu?.predictedDischargeTsp3).toBe(toLocalTime(SD.estDis, tsp3.timezone)); });
+      test('NEW-P-29 | estimatedDischargeTsp3 null', () => { expect(otu?.estimatedDischargeTsp3 ?? null).toBeNull(); });
+      test('NEW-P-29 | tsp3Locode set', () => { expect(otu?.tsp3Locode).toBe(tsp3.unlocode); });
+    });
+
+    test.describe('NEW-P-30 | container_loaded estimated external → estimatedLoadTsp3 · vessel at N+1=4', () => {
+      let otu = null; const ref = generateContainerRef(); let tsp1, tsp2, tsp3, vessel;
+      test.beforeAll(async () => {
+        tsp1 = TSP_LOCODES_NEW[0]; tsp2 = TSP_LOCODES_NEW[1]; tsp3 = TSP_LOCODES_NEW[2]; vessel = pickVesselNew();
+        const r = await createTspOtu(ref);
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: null });
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel, event: 'container_arrived', date: SD.arrTsp2, type: 'actual', dataSource: null });
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp3, vessel, event: 'container_loaded', date: SD.estLd, type: 'estimated', dataSource: 'external' }));
+      });
+      test.beforeEach(() => { if (!otu) test.skip(); });
+      test('NEW-P-30 | estimatedLoadTsp3 = local time', () => { expect(otu?.estimatedLoadTsp3).toBe(toLocalTime(SD.estLd, tsp3.timezone)); });
+      test('NEW-P-30 | actualLoadTsp3 null', () => { expect(otu?.actualLoadTsp3 ?? null).toBeNull(); });
+      test('NEW-P-30 | tsp3Locode set', () => { expect(otu?.tsp3Locode).toBe(tsp3.unlocode); });
+      test('NEW-P-30 | leg4VesselImoNumber = vessel (INCREMENT N+1=4)', () => { expect(otu?.leg4VesselImoNumber).toBe(vessel.imo); });
+      test('NEW-P-30 | leg3VesselImoNumber null', () => { expect(otu?.leg3VesselImoNumber ?? null).toBeNull(); });
+    });
+
+    test.describe('NEW-P-31 | container_loaded estimated shippeo → predictedLoadTsp3 · vessel at N+1=4', () => {
+      let otu = null; const ref = generateContainerRef(); let tsp1, tsp2, tsp3, vessel;
+      test.beforeAll(async () => {
+        tsp1 = TSP_LOCODES_NEW[0]; tsp2 = TSP_LOCODES_NEW[1]; tsp3 = TSP_LOCODES_NEW[2]; vessel = pickVesselNew();
+        const r = await createTspOtu(ref);
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: null });
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel, event: 'container_arrived', date: SD.arrTsp2, type: 'actual', dataSource: null });
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp3, vessel, event: 'container_loaded', date: SD.estLd, type: 'estimated', dataSource: 'shippeo' }));
+      });
+      test.beforeEach(() => { if (!otu) test.skip(); });
+      test('NEW-P-31 | predictedLoadTsp3 = local time', () => { expect(otu?.predictedLoadTsp3).toBe(toLocalTime(SD.estLd, tsp3.timezone)); });
+      test('NEW-P-31 | estimatedLoadTsp3 null', () => { expect(otu?.estimatedLoadTsp3 ?? null).toBeNull(); });
+      test('NEW-P-31 | leg4VesselImoNumber = vessel (INCREMENT)', () => { expect(otu?.leg4VesselImoNumber).toBe(vessel.imo); });
+    });
+
+    test.describe('NEW-P-32 | container_departed estimated external → estimatedDepartureTsp3 · vessel at N+1=4', () => {
+      let otu = null; const ref = generateContainerRef(); let tsp1, tsp2, tsp3, vessel;
+      test.beforeAll(async () => {
+        tsp1 = TSP_LOCODES_NEW[0]; tsp2 = TSP_LOCODES_NEW[1]; tsp3 = TSP_LOCODES_NEW[2]; vessel = pickVesselNew();
+        const r = await createTspOtu(ref);
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: null });
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel, event: 'container_arrived', date: SD.arrTsp2, type: 'actual', dataSource: null });
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp3, vessel, event: 'container_departed', date: SD.estDep, type: 'estimated', dataSource: 'external' }));
+      });
+      test.beforeEach(() => { if (!otu) test.skip(); });
+      test('NEW-P-32 | estimatedDepartureTsp3 = local time', () => { expect(otu?.estimatedDepartureTsp3).toBe(toLocalTime(SD.estDep, tsp3.timezone)); });
+      test('NEW-P-32 | actualDepartureTsp3 null', () => { expect(otu?.actualDepartureTsp3 ?? null).toBeNull(); });
+      test('NEW-P-32 | leg4VesselImoNumber = vessel (INCREMENT)', () => { expect(otu?.leg4VesselImoNumber).toBe(vessel.imo); });
+    });
+
+    test.describe('NEW-P-33 | container_departed estimated shippeo → predictedDepartureTsp3 · vessel at N+1=4', () => {
+      let otu = null; const ref = generateContainerRef(); let tsp1, tsp2, tsp3, vessel;
+      test.beforeAll(async () => {
+        tsp1 = TSP_LOCODES_NEW[0]; tsp2 = TSP_LOCODES_NEW[1]; tsp3 = TSP_LOCODES_NEW[2]; vessel = pickVesselNew();
+        const r = await createTspOtu(ref);
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: null });
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel, event: 'container_arrived', date: SD.arrTsp2, type: 'actual', dataSource: null });
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp3, vessel, event: 'container_departed', date: SD.estDep, type: 'estimated', dataSource: 'shippeo' }));
+      });
+      test.beforeEach(() => { if (!otu) test.skip(); });
+      test('NEW-P-33 | predictedDepartureTsp3 = local time', () => { expect(otu?.predictedDepartureTsp3).toBe(toLocalTime(SD.estDep, tsp3.timezone)); });
+      test('NEW-P-33 | estimatedDepartureTsp3 null', () => { expect(otu?.estimatedDepartureTsp3 ?? null).toBeNull(); });
+      test('NEW-P-33 | leg4VesselImoNumber = vessel (INCREMENT)', () => { expect(otu?.leg4VesselImoNumber).toBe(vessel.imo); });
+    });
+
+    // ── NEW-P: Estimated & Predicted — TSP Slot 4 ───────────────────────────
+
+    test.describe('NEW-P-34 | container_arrived estimated external → estimatedArrivalTsp4', () => {
+      let otu = null; const ref = generateContainerRef(); let tsp1, tsp2, tsp3, tsp4, vessel;
+      test.beforeAll(async () => {
+        tsp1 = TSP_LOCODES_NEW[0]; tsp2 = TSP_LOCODES_NEW[1]; tsp3 = TSP_LOCODES_NEW[2]; tsp4 = TSP_LOCODES_NEW[3]; vessel = pickVesselNew();
+        const r = await createTspOtu(ref);
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: null });
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel, event: 'container_arrived', date: SD.arrTsp2, type: 'actual', dataSource: null });
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp3, vessel, event: 'container_arrived', date: SD.t1,      type: 'actual', dataSource: null });
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp4, vessel, event: 'container_arrived', date: SD.estArr, type: 'estimated', dataSource: 'external' }));
+      });
+      test.beforeEach(() => { if (!otu) test.skip(); });
+      test('NEW-P-34 | estimatedArrivalTsp4 = local time', () => { expect(otu?.estimatedArrivalTsp4).toBe(toLocalTime(SD.estArr, tsp4.timezone)); });
+      test('NEW-P-34 | actualArrivalTsp4 null', () => { expect(otu?.actualArrivalTsp4 ?? null).toBeNull(); });
+      test('NEW-P-34 | predictedArrivalTsp4 null', () => { expect(otu?.predictedArrivalTsp4 ?? null).toBeNull(); });
+      test('NEW-P-34 | tsp4Locode set', () => { expect(otu?.tsp4Locode).toBe(tsp4.unlocode); });
+      test('NEW-P-34 | leg4VesselImoNumber set (NON-INCREMENT N=4)', () => { expect(otu?.leg4VesselImoNumber).toBe(vessel.imo); });
+    });
+
+    test.describe('NEW-P-35 | container_arrived estimated shippeo → predictedArrivalTsp4', () => {
+      let otu = null; const ref = generateContainerRef(); let tsp1, tsp2, tsp3, tsp4, vessel;
+      test.beforeAll(async () => {
+        tsp1 = TSP_LOCODES_NEW[0]; tsp2 = TSP_LOCODES_NEW[1]; tsp3 = TSP_LOCODES_NEW[2]; tsp4 = TSP_LOCODES_NEW[3]; vessel = pickVesselNew();
+        const r = await createTspOtu(ref);
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: null });
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel, event: 'container_arrived', date: SD.arrTsp2, type: 'actual', dataSource: null });
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp3, vessel, event: 'container_arrived', date: SD.t1,      type: 'actual', dataSource: null });
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp4, vessel, event: 'container_arrived', date: SD.predArr, type: 'estimated', dataSource: 'shippeo' }));
+      });
+      test.beforeEach(() => { if (!otu) test.skip(); });
+      test('NEW-P-35 | predictedArrivalTsp4 = local time', () => { expect(otu?.predictedArrivalTsp4).toBe(toLocalTime(SD.predArr, tsp4.timezone)); });
+      test('NEW-P-35 | estimatedArrivalTsp4 null', () => { expect(otu?.estimatedArrivalTsp4 ?? null).toBeNull(); });
+      test('NEW-P-35 | tsp4Locode set', () => { expect(otu?.tsp4Locode).toBe(tsp4.unlocode); });
+    });
+
+    test.describe('NEW-P-36 | container_unloaded estimated external → estimatedDischargeTsp4', () => {
+      let otu = null; const ref = generateContainerRef(); let tsp1, tsp2, tsp3, tsp4, vessel;
+      test.beforeAll(async () => {
+        tsp1 = TSP_LOCODES_NEW[0]; tsp2 = TSP_LOCODES_NEW[1]; tsp3 = TSP_LOCODES_NEW[2]; tsp4 = TSP_LOCODES_NEW[3]; vessel = pickVesselNew();
+        const r = await createTspOtu(ref);
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: null });
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel, event: 'container_arrived', date: SD.arrTsp2, type: 'actual', dataSource: null });
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp3, vessel, event: 'container_arrived', date: SD.t1,      type: 'actual', dataSource: null });
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp4, vessel, event: 'container_unloaded', date: SD.estDis, type: 'estimated', dataSource: 'external' }));
+      });
+      test.beforeEach(() => { if (!otu) test.skip(); });
+      test('NEW-P-36 | estimatedDischargeTsp4 = local time', () => { expect(otu?.estimatedDischargeTsp4).toBe(toLocalTime(SD.estDis, tsp4.timezone)); });
+      test('NEW-P-36 | actualDischargeTsp4 null', () => { expect(otu?.actualDischargeTsp4 ?? null).toBeNull(); });
+      test('NEW-P-36 | tsp4Locode set', () => { expect(otu?.tsp4Locode).toBe(tsp4.unlocode); });
+      test('NEW-P-36 | leg4VesselImoNumber set (NON-INCREMENT)', () => { expect(otu?.leg4VesselImoNumber).toBe(vessel.imo); });
+    });
+
+    test.describe('NEW-P-37 | container_unloaded estimated shippeo → predictedDischargeTsp4', () => {
+      let otu = null; const ref = generateContainerRef(); let tsp1, tsp2, tsp3, tsp4, vessel;
+      test.beforeAll(async () => {
+        tsp1 = TSP_LOCODES_NEW[0]; tsp2 = TSP_LOCODES_NEW[1]; tsp3 = TSP_LOCODES_NEW[2]; tsp4 = TSP_LOCODES_NEW[3]; vessel = pickVesselNew();
+        const r = await createTspOtu(ref);
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: null });
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel, event: 'container_arrived', date: SD.arrTsp2, type: 'actual', dataSource: null });
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp3, vessel, event: 'container_arrived', date: SD.t1,      type: 'actual', dataSource: null });
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp4, vessel, event: 'container_unloaded', date: SD.estDis, type: 'estimated', dataSource: 'shippeo' }));
+      });
+      test.beforeEach(() => { if (!otu) test.skip(); });
+      test('NEW-P-37 | predictedDischargeTsp4 = local time', () => { expect(otu?.predictedDischargeTsp4).toBe(toLocalTime(SD.estDis, tsp4.timezone)); });
+      test('NEW-P-37 | estimatedDischargeTsp4 null', () => { expect(otu?.estimatedDischargeTsp4 ?? null).toBeNull(); });
+      test('NEW-P-37 | tsp4Locode set', () => { expect(otu?.tsp4Locode).toBe(tsp4.unlocode); });
+    });
+
+    test.describe('NEW-P-38 | container_loaded estimated external → estimatedLoadTsp4', () => {
+      let otu = null; const ref = generateContainerRef(); let tsp1, tsp2, tsp3, tsp4, vessel;
+      test.beforeAll(async () => {
+        tsp1 = TSP_LOCODES_NEW[0]; tsp2 = TSP_LOCODES_NEW[1]; tsp3 = TSP_LOCODES_NEW[2]; tsp4 = TSP_LOCODES_NEW[3]; vessel = pickVesselNew();
+        const r = await createTspOtu(ref);
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: null });
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel, event: 'container_arrived', date: SD.arrTsp2, type: 'actual', dataSource: null });
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp3, vessel, event: 'container_arrived', date: SD.t1,      type: 'actual', dataSource: null });
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp4, vessel, event: 'container_loaded', date: SD.estLd, type: 'estimated', dataSource: 'external' }));
+      });
+      test.beforeEach(() => { if (!otu) test.skip(); });
+      test('NEW-P-38 | estimatedLoadTsp4 = local time', () => { expect(otu?.estimatedLoadTsp4).toBe(toLocalTime(SD.estLd, tsp4.timezone)); });
+      test('NEW-P-38 | actualLoadTsp4 null', () => { expect(otu?.actualLoadTsp4 ?? null).toBeNull(); });
+      test('NEW-P-38 | tsp4Locode set', () => { expect(otu?.tsp4Locode).toBe(tsp4.unlocode); });
+    });
+
+    test.describe('NEW-P-39 | container_loaded estimated shippeo → predictedLoadTsp4', () => {
+      let otu = null; const ref = generateContainerRef(); let tsp1, tsp2, tsp3, tsp4, vessel;
+      test.beforeAll(async () => {
+        tsp1 = TSP_LOCODES_NEW[0]; tsp2 = TSP_LOCODES_NEW[1]; tsp3 = TSP_LOCODES_NEW[2]; tsp4 = TSP_LOCODES_NEW[3]; vessel = pickVesselNew();
+        const r = await createTspOtu(ref);
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: null });
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel, event: 'container_arrived', date: SD.arrTsp2, type: 'actual', dataSource: null });
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp3, vessel, event: 'container_arrived', date: SD.t1,      type: 'actual', dataSource: null });
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp4, vessel, event: 'container_loaded', date: SD.estLd, type: 'estimated', dataSource: 'shippeo' }));
+      });
+      test.beforeEach(() => { if (!otu) test.skip(); });
+      test('NEW-P-39 | predictedLoadTsp4 = local time', () => { expect(otu?.predictedLoadTsp4).toBe(toLocalTime(SD.estLd, tsp4.timezone)); });
+      test('NEW-P-39 | estimatedLoadTsp4 null', () => { expect(otu?.estimatedLoadTsp4 ?? null).toBeNull(); });
+    });
+
+    test.describe('NEW-P-40 | container_departed estimated external → estimatedDepartureTsp4', () => {
+      let otu = null; const ref = generateContainerRef(); let tsp1, tsp2, tsp3, tsp4, vessel;
+      test.beforeAll(async () => {
+        tsp1 = TSP_LOCODES_NEW[0]; tsp2 = TSP_LOCODES_NEW[1]; tsp3 = TSP_LOCODES_NEW[2]; tsp4 = TSP_LOCODES_NEW[3]; vessel = pickVesselNew();
+        const r = await createTspOtu(ref);
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: null });
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel, event: 'container_arrived', date: SD.arrTsp2, type: 'actual', dataSource: null });
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp3, vessel, event: 'container_arrived', date: SD.t1,      type: 'actual', dataSource: null });
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp4, vessel, event: 'container_departed', date: SD.estDep, type: 'estimated', dataSource: 'external' }));
+      });
+      test.beforeEach(() => { if (!otu) test.skip(); });
+      test('NEW-P-40 | estimatedDepartureTsp4 = local time', () => { expect(otu?.estimatedDepartureTsp4).toBe(toLocalTime(SD.estDep, tsp4.timezone)); });
+      test('NEW-P-40 | actualDepartureTsp4 null', () => { expect(otu?.actualDepartureTsp4 ?? null).toBeNull(); });
+    });
+
+    test.describe('NEW-P-41 | container_departed estimated shippeo → predictedDepartureTsp4', () => {
+      let otu = null; const ref = generateContainerRef(); let tsp1, tsp2, tsp3, tsp4, vessel;
+      test.beforeAll(async () => {
+        tsp1 = TSP_LOCODES_NEW[0]; tsp2 = TSP_LOCODES_NEW[1]; tsp3 = TSP_LOCODES_NEW[2]; tsp4 = TSP_LOCODES_NEW[3]; vessel = pickVesselNew();
+        const r = await createTspOtu(ref);
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: null });
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel, event: 'container_arrived', date: SD.arrTsp2, type: 'actual', dataSource: null });
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp3, vessel, event: 'container_arrived', date: SD.t1,      type: 'actual', dataSource: null });
+        ({ otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp4, vessel, event: 'container_departed', date: SD.estDep, type: 'estimated', dataSource: 'shippeo' }));
+      });
+      test.beforeEach(() => { if (!otu) test.skip(); });
+      test('NEW-P-41 | predictedDepartureTsp4 = local time', () => { expect(otu?.predictedDepartureTsp4).toBe(toLocalTime(SD.estDep, tsp4.timezone)); });
+      test('NEW-P-41 | estimatedDepartureTsp4 null', () => { expect(otu?.estimatedDepartureTsp4 ?? null).toBeNull(); });
+    });
+
     // ── NEW-V: Vessel Slot Logic ──────────────────────────────────────────────
 
     test.describe('NEW-V-01 | Slot 2 journey · NON-INCR at N=2 · INCREMENT at N+1=3', () => {
-      let otu1 = null, otu2 = null; const ref = generateContainerRef(); let tsp1, tsp2, vessel2, vessel3;
+      let otu1 = null, otu2 = null; const ref = generateContainerRef(); let tsp1, tsp2, vessel1, vessel2, vessel3;
       test.beforeAll(async () => {
         tsp1 = TSP_LOCODES_NEW[0]; tsp2 = TSP_LOCODES_NEW[1];
-        vessel2 = pickVesselNew(); vessel3 = pickVesselNew(vessel2.imo);
+        vessel1 = pickVesselNew();
+        vessel2 = pickVesselNew(vessel1.imo);
+        vessel3 = pickVesselNew([vessel1.imo, vessel2.imo]);
         const r = await createTspOtu(ref);
-        // Claim slot 1 first
-        await sendTspEvent(ref, r.code, { tsp: tsp1, vessel: vessel2, event: 'container_arrived', date: SD.arrTsp1 });
-        // Claim slot 2
+        // vessel1 carried container from POL → arrives at TSP1 on vessel1 (leg1)
+        await sendTspEvent(ref, r.code, { tsp: tsp1, vessel: vessel1, event: 'container_arrived', date: SD.arrTsp1 });
+        // vessel2 picks up at TSP1 → arrives at TSP2 on vessel2 (leg2, NON-INCREMENT N=2)
         ({ otu: otu1 } = await sendTspEvent(ref, r.code, { tsp: tsp2, vessel: vessel2, event: 'container_arrived', date: SD.arrTsp2 }));
-        // Depart slot 2 with vessel3 → N+1=3
+        // vessel3 picks up at TSP2 → departs TSP2 on vessel3 (leg3, INCREMENT N+1=3)
         ({ otu: otu2 } = await sendTspEvent(ref, r.code, { tsp: tsp2, vessel: vessel3, event: 'container_departed', date: SD.depTsp1 }));
       });
       test.beforeEach(() => { if (!otu1 || !otu2) test.skip(); });
@@ -1000,6 +1382,119 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
       test('NEW-V-01 | after arrived: leg3VesselImoNumber null', () => { expect(otu1?.leg3VesselImoNumber ?? null).toBeNull(); });
       test('NEW-V-01 | after departed: leg3VesselImoNumber = vessel3 (N+1=3)', () => { expect(otu2?.leg3VesselImoNumber).toBe(vessel3.imo); });
       test('NEW-V-01 | leg2VesselImoNumber unchanged', () => { expect(otu2?.leg2VesselImoNumber).toBe(vessel2.imo); });
+    });
+
+    test.describe('NEW-V-05 | leg2 vessel set by TSP1 INCREMENT · confirmed consistent by TSP2 NON-INCREMENT', () => {
+      // vessel1: POL → TSP1  (leg1)
+      // vessel2: TSP1 → TSP2 (leg2) — written by BOTH TSP1 load/depart AND TSP2 arrived/unloaded
+      // All 4 of those events carry vessel2, all must write to leg2.
+      let otuAfterLoad = null, otuAfterDep = null, otuAfterTsp2Arr = null, otuAfterTsp2Dis = null;
+      const ref = generateContainerRef(); let tsp1, tsp2, vessel1, vessel2;
+      test.beforeAll(async () => {
+        tsp1 = TSP_LOCODES_NEW[0]; tsp2 = TSP_LOCODES_NEW[1];
+        vessel1 = pickVesselNew();
+        vessel2 = pickVesselNew(vessel1.imo);
+        const r = await createTspOtu(ref);
+        // vessel1 carries container from POL → TSP1
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel: vessel1, event: 'container_arrived',  date: SD.arrTsp1 });
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel: vessel1, event: 'container_unloaded', date: SD.disTsp1 });
+        // vessel2 picks up at TSP1 — loaded (INCREMENT slot1 → leg2)
+        ({ otu: otuAfterLoad }     = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel: vessel2, event: 'container_loaded',   date: SD.ldTsp1 }));
+        // vessel2 departs TSP1 — departed (INCREMENT slot1 → leg2, same vessel)
+        ({ otu: otuAfterDep }      = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel: vessel2, event: 'container_departed', date: SD.depTsp1 }));
+        // vessel2 arrives TSP2 — arrived (NON-INCR slot2 → leg2, same vessel)
+        ({ otu: otuAfterTsp2Arr }  = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel: vessel2, event: 'container_arrived',  date: SD.arrTsp2 }));
+        // vessel2 discharged TSP2 — unloaded (NON-INCR slot2 → leg2, same vessel)
+        ({ otu: otuAfterTsp2Dis }  = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel: vessel2, event: 'container_unloaded', date: SD.disTsp2 }));
+      });
+      test.beforeEach(() => { if (!otuAfterLoad) test.skip(); });
+      // TSP1 NON-INCREMENT → leg1
+      test('NEW-V-05 | leg1 = vessel1 after TSP1 arrived + unloaded (NON-INCR)',   () => { expect(otuAfterDep?.leg1VesselImoNumber).toBe(vessel1.imo); });
+      // TSP1 INCREMENT → leg2 (first written here)
+      test('NEW-V-05 | leg2 = vessel2 after TSP1 loaded (INCREMENT N+1=2)',         () => { expect(otuAfterLoad?.leg2VesselImoNumber).toBe(vessel2.imo); });
+      test('NEW-V-05 | leg2 = vessel2 after TSP1 departed (INCREMENT, same vessel)',() => { expect(otuAfterDep?.leg2VesselImoNumber).toBe(vessel2.imo); });
+      test('NEW-V-05 | tsp2Locode null after TSP1 load/dep (TSP2 not yet claimed)', () => { expect(otuAfterDep?.tsp2Locode ?? null).toBeNull(); });
+      // TSP2 NON-INCREMENT → leg2 (same field, same vessel2 — confirms consistency)
+      test('NEW-V-05 | leg2 = vessel2 after TSP2 arrived (NON-INCR slot2 → leg2)',  () => { expect(otuAfterTsp2Arr?.leg2VesselImoNumber).toBe(vessel2.imo); });
+      test('NEW-V-05 | leg2 = vessel2 after TSP2 unloaded (NON-INCR slot2 → leg2)',  () => { expect(otuAfterTsp2Dis?.leg2VesselImoNumber).toBe(vessel2.imo); });
+      test('NEW-V-05 | leg1 unchanged throughout (vessel1)',                          () => { expect(otuAfterTsp2Dis?.leg1VesselImoNumber).toBe(vessel1.imo); });
+      test('NEW-V-05 | leg3 null (no TSP2 load/departure yet)',                      () => { expect(otuAfterTsp2Dis?.leg3VesselImoNumber ?? null).toBeNull(); });
+    });
+
+    test.describe('NEW-V-06 | leg3 vessel set by TSP2 INCREMENT · confirmed by TSP3 NON-INCREMENT', () => {
+      // vessel1: POL→TSP1 (leg1) | vessel2: TSP1→TSP2 (leg2) | vessel3: TSP2→TSP3 (leg3)
+      let otuAfterLoad = null, otuAfterDep = null, otuAfterTsp3Arr = null, otuAfterTsp3Dis = null;
+      const ref = generateContainerRef(); let tsp1, tsp2, tsp3, vessel1, vessel2, vessel3;
+      test.beforeAll(async () => {
+        tsp1 = TSP_LOCODES_NEW[0]; tsp2 = TSP_LOCODES_NEW[1]; tsp3 = TSP_LOCODES_NEW[2];
+        vessel1 = pickVesselNew();
+        vessel2 = pickVesselNew(vessel1.imo);
+        vessel3 = pickVesselNew([vessel1.imo, vessel2.imo]);
+        const r = await createTspOtu(ref);
+        // Claim slot1: vessel1 POL→TSP1
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel: vessel1, event: 'container_arrived',  date: SD.arrTsp1 });
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel: vessel1, event: 'container_unloaded', date: SD.disTsp1 });
+        // Claim slot2: vessel2 TSP1→TSP2
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel: vessel2, event: 'container_loaded',   date: SD.ldTsp1 });
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel: vessel2, event: 'container_departed', date: SD.depTsp1 });
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel: vessel2, event: 'container_arrived',  date: SD.arrTsp2 });
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel: vessel2, event: 'container_unloaded', date: SD.disTsp2 });
+        // vessel3 picks up at TSP2 → leg3
+        ({ otu: otuAfterLoad }    = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel: vessel3, event: 'container_loaded',   date: SD.ldTsp1 }));
+        ({ otu: otuAfterDep }     = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel: vessel3, event: 'container_departed', date: SD.depTsp1 }));
+        ({ otu: otuAfterTsp3Arr } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp3, vessel: vessel3, event: 'container_arrived',  date: SD.t1 }));
+        ({ otu: otuAfterTsp3Dis } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp3, vessel: vessel3, event: 'container_unloaded', date: SD.t2 }));
+      });
+      test.beforeEach(() => { if (!otuAfterLoad) test.skip(); });
+      test('NEW-V-06 | leg1 = vessel1 (POL→TSP1)',                                    () => { expect(otuAfterTsp3Dis?.leg1VesselImoNumber).toBe(vessel1.imo); });
+      test('NEW-V-06 | leg2 = vessel2 (TSP1→TSP2)',                                   () => { expect(otuAfterTsp3Dis?.leg2VesselImoNumber).toBe(vessel2.imo); });
+      test('NEW-V-06 | leg3 = vessel3 after TSP2 loaded (INCREMENT slot2 → leg3)',     () => { expect(otuAfterLoad?.leg3VesselImoNumber).toBe(vessel3.imo); });
+      test('NEW-V-06 | leg3 = vessel3 after TSP2 departed (INCREMENT, same vessel)',   () => { expect(otuAfterDep?.leg3VesselImoNumber).toBe(vessel3.imo); });
+      test('NEW-V-06 | tsp3Locode null after TSP2 load/dep (TSP3 not yet claimed)',   () => { expect(otuAfterDep?.tsp3Locode ?? null).toBeNull(); });
+      test('NEW-V-06 | leg3 = vessel3 after TSP3 arrived (NON-INCR slot3 → leg3)',    () => { expect(otuAfterTsp3Arr?.leg3VesselImoNumber).toBe(vessel3.imo); });
+      test('NEW-V-06 | leg3 = vessel3 after TSP3 unloaded (NON-INCR slot3 → leg3)',   () => { expect(otuAfterTsp3Dis?.leg3VesselImoNumber).toBe(vessel3.imo); });
+      test('NEW-V-06 | leg4 null (no TSP3 load/departure yet)',                        () => { expect(otuAfterTsp3Dis?.leg4VesselImoNumber ?? null).toBeNull(); });
+    });
+
+    test.describe('NEW-V-07 | leg4 vessel set by TSP3 INCREMENT · confirmed by TSP4 NON-INCREMENT', () => {
+      // vessel1: POL→TSP1 | vessel2: TSP1→TSP2 | vessel3: TSP2→TSP3 | vessel4: TSP3→TSP4 (leg4)
+      let otuAfterLoad = null, otuAfterDep = null, otuAfterTsp4Arr = null, otuAfterTsp4Dis = null;
+      const ref = generateContainerRef(); let tsp1, tsp2, tsp3, tsp4, vessel1, vessel2, vessel3, vessel4;
+      test.beforeAll(async () => {
+        tsp1 = TSP_LOCODES_NEW[0]; tsp2 = TSP_LOCODES_NEW[1]; tsp3 = TSP_LOCODES_NEW[2]; tsp4 = TSP_LOCODES_NEW[3];
+        vessel1 = pickVesselNew();
+        vessel2 = pickVesselNew(vessel1.imo);
+        vessel3 = pickVesselNew([vessel1.imo, vessel2.imo]);
+        vessel4 = pickVesselNew([vessel1.imo, vessel2.imo, vessel3.imo]);
+        const r = await createTspOtu(ref);
+        // Slot1: vessel1 POL→TSP1
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel: vessel1, event: 'container_arrived',  date: SD.arrTsp1 });
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel: vessel1, event: 'container_unloaded', date: SD.disTsp1 });
+        // Slot2: vessel2 TSP1→TSP2
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel: vessel2, event: 'container_loaded',   date: SD.ldTsp1 });
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel: vessel2, event: 'container_departed', date: SD.depTsp1 });
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel: vessel2, event: 'container_arrived',  date: SD.arrTsp2 });
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel: vessel2, event: 'container_unloaded', date: SD.disTsp2 });
+        // Slot3: vessel3 TSP2→TSP3
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel: vessel3, event: 'container_loaded',   date: SD.ldTsp1 });
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel: vessel3, event: 'container_departed', date: SD.depTsp1 });
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp3, vessel: vessel3, event: 'container_arrived',  date: SD.t1 });
+        await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp3, vessel: vessel3, event: 'container_unloaded', date: SD.t2 });
+        // vessel4 picks up at TSP3 → leg4
+        ({ otu: otuAfterLoad }    = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp3, vessel: vessel4, event: 'container_loaded',   date: SD.ldTsp1 }));
+        ({ otu: otuAfterDep }     = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp3, vessel: vessel4, event: 'container_departed', date: SD.depTsp1 }));
+        ({ otu: otuAfterTsp4Arr } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp4, vessel: vessel4, event: 'container_arrived',  date: SD.t1 }));
+        ({ otu: otuAfterTsp4Dis } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp4, vessel: vessel4, event: 'container_unloaded', date: SD.t2 }));
+      });
+      test.beforeEach(() => { if (!otuAfterLoad) test.skip(); });
+      test('NEW-V-07 | leg1 = vessel1 (POL→TSP1)',                                    () => { expect(otuAfterTsp4Dis?.leg1VesselImoNumber).toBe(vessel1.imo); });
+      test('NEW-V-07 | leg2 = vessel2 (TSP1→TSP2)',                                   () => { expect(otuAfterTsp4Dis?.leg2VesselImoNumber).toBe(vessel2.imo); });
+      test('NEW-V-07 | leg3 = vessel3 (TSP2→TSP3)',                                   () => { expect(otuAfterTsp4Dis?.leg3VesselImoNumber).toBe(vessel3.imo); });
+      test('NEW-V-07 | leg4 = vessel4 after TSP3 loaded (INCREMENT slot3 → leg4)',     () => { expect(otuAfterLoad?.leg4VesselImoNumber).toBe(vessel4.imo); });
+      test('NEW-V-07 | leg4 = vessel4 after TSP3 departed (INCREMENT, same vessel)',   () => { expect(otuAfterDep?.leg4VesselImoNumber).toBe(vessel4.imo); });
+      test('NEW-V-07 | tsp4Locode null after TSP3 load/dep (TSP4 not yet claimed)',   () => { expect(otuAfterDep?.tsp4Locode ?? null).toBeNull(); });
+      test('NEW-V-07 | leg4 = vessel4 after TSP4 arrived (NON-INCR slot4 → leg4)',    () => { expect(otuAfterTsp4Arr?.leg4VesselImoNumber).toBe(vessel4.imo); });
+      test('NEW-V-07 | leg4 = vessel4 after TSP4 unloaded (NON-INCR slot4 → leg4)',   () => { expect(otuAfterTsp4Dis?.leg4VesselImoNumber).toBe(vessel4.imo); });
     });
 
     test.describe('NEW-V-02 | Slot 4 INCREMENT → N+1=5 out of range · vessel skipped · date written', () => {
@@ -1291,6 +1786,272 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
         const res = await ctx.post(OCFG.WEBHOOK_PATH, { headers: webhookHeaders(), data: payload });
         expect(res.status()).toBe(200);
       } finally { await ctx.dispose(); }
+    });
+
+    // ── NEW-N: Negative — TSP Slot 2 estimated/predicted ────────────────────
+
+    test('NEW-N-16 | Slot 2 estimated + DS null → date NOT written · locode NOT claimed (backend rejects unknown event)', async () => {
+      const ref = generateContainerRef(); const tsp1 = TSP_LOCODES_NEW[0]; const tsp2 = TSP_LOCODES_NEW[1]; const vessel = pickVesselNew();
+      const r = await createTspOtu(ref);
+      await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: null });
+      const { otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel, event: 'container_arrived', date: SD.estArr, type: 'estimated', dataSource: null });
+      expect(otu?.estimatedArrivalTsp2 ?? null).toBeNull();
+      expect(otu?.predictedArrivalTsp2 ?? null).toBeNull();
+      expect(otu?.actualArrivalTsp2 ?? null).toBeNull();
+      expect(otu?.tsp2Locode).toBe(tsp2.unlocode);
+    });
+
+    test('NEW-N-17 | Slot 2 estimated + DS carrier → date NOT written', async () => {
+      const ref = generateContainerRef(); const tsp1 = TSP_LOCODES_NEW[0]; const tsp2 = TSP_LOCODES_NEW[1]; const vessel = pickVesselNew();
+      const r = await createTspOtu(ref);
+      await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: null });
+      const { otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel, event: 'container_arrived', date: SD.estArr, type: 'estimated', dataSource: 'carrier' });
+      expect(otu?.estimatedArrivalTsp2 ?? null).toBeNull();
+      expect(otu?.predictedArrivalTsp2 ?? null).toBeNull();
+      expect(otu?.tsp2Locode).toBe(tsp2.unlocode);
+    });
+
+    test('NEW-N-18 | Slot 2 actual + DS external → date NOT written · locode still claimed', async () => {
+      const ref = generateContainerRef(); const tsp1 = TSP_LOCODES_NEW[0]; const tsp2 = TSP_LOCODES_NEW[1]; const vessel = pickVesselNew();
+      const r = await createTspOtu(ref);
+      await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: null });
+      const { otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel, event: 'container_arrived', date: SD.arrTsp2, type: 'actual', dataSource: 'external' });
+      expect(otu?.actualArrivalTsp2 ?? null).toBeNull();
+      expect(otu?.estimatedArrivalTsp2 ?? null).toBeNull();
+      expect(otu?.tsp2Locode).toBe(tsp2.unlocode);
+    });
+
+    test('NEW-N-19 | Slot 2 actual + DS shippeo → date NOT written · locode still claimed', async () => {
+      const ref = generateContainerRef(); const tsp1 = TSP_LOCODES_NEW[0]; const tsp2 = TSP_LOCODES_NEW[1]; const vessel = pickVesselNew();
+      const r = await createTspOtu(ref);
+      await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: null });
+      const { otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel, event: 'container_arrived', date: SD.arrTsp2, type: 'actual', dataSource: 'shippeo' });
+      expect(otu?.actualArrivalTsp2 ?? null).toBeNull();
+      expect(otu?.predictedArrivalTsp2 ?? null).toBeNull();
+      expect(otu?.tsp2Locode).toBe(tsp2.unlocode);
+    });
+
+    // ── NEW-N: Negative — TSP Slot 3 estimated/predicted ────────────────────
+
+    test('NEW-N-20 | Slot 3 estimated + DS null → date NOT written · locode NOT claimed (backend rejects unknown event)', async () => {
+      const ref = generateContainerRef(); const tsp1 = TSP_LOCODES_NEW[0]; const tsp2 = TSP_LOCODES_NEW[1]; const tsp3 = TSP_LOCODES_NEW[2]; const vessel = pickVesselNew();
+      const r = await createTspOtu(ref);
+      await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: null });
+      await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel, event: 'container_arrived', date: SD.arrTsp2, type: 'actual', dataSource: null });
+      const { otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp3, vessel, event: 'container_arrived', date: SD.estArr, type: 'estimated', dataSource: null });
+      expect(otu?.estimatedArrivalTsp3 ?? null).toBeNull();
+      expect(otu?.predictedArrivalTsp3 ?? null).toBeNull();
+      expect(otu?.actualArrivalTsp3 ?? null).toBeNull();
+      expect(otu?.tsp3Locode).toBe(tsp3.unlocode);
+    });
+
+    test('NEW-N-21 | Slot 3 estimated + DS carrier → date NOT written', async () => {
+      const ref = generateContainerRef(); const tsp1 = TSP_LOCODES_NEW[0]; const tsp2 = TSP_LOCODES_NEW[1]; const tsp3 = TSP_LOCODES_NEW[2]; const vessel = pickVesselNew();
+      const r = await createTspOtu(ref);
+      await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: null });
+      await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel, event: 'container_arrived', date: SD.arrTsp2, type: 'actual', dataSource: null });
+      const { otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp3, vessel, event: 'container_arrived', date: SD.estArr, type: 'estimated', dataSource: 'carrier' });
+      expect(otu?.estimatedArrivalTsp3 ?? null).toBeNull();
+      expect(otu?.predictedArrivalTsp3 ?? null).toBeNull();
+      expect(otu?.tsp3Locode).toBe(tsp3.unlocode);
+    });
+
+    test('NEW-N-22 | Slot 3 actual + DS external → date NOT written · locode still claimed', async () => {
+      const ref = generateContainerRef(); const tsp1 = TSP_LOCODES_NEW[0]; const tsp2 = TSP_LOCODES_NEW[1]; const tsp3 = TSP_LOCODES_NEW[2]; const vessel = pickVesselNew();
+      const r = await createTspOtu(ref);
+      await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: null });
+      await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel, event: 'container_arrived', date: SD.arrTsp2, type: 'actual', dataSource: null });
+      const { otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp3, vessel, event: 'container_arrived', date: SD.t1, type: 'actual', dataSource: 'external' });
+      expect(otu?.actualArrivalTsp3 ?? null).toBeNull();
+      expect(otu?.estimatedArrivalTsp3 ?? null).toBeNull();
+      expect(otu?.tsp3Locode).toBe(tsp3.unlocode);
+    });
+
+    test('NEW-N-23 | Slot 3 actual + DS shippeo → date NOT written · locode still claimed', async () => {
+      const ref = generateContainerRef(); const tsp1 = TSP_LOCODES_NEW[0]; const tsp2 = TSP_LOCODES_NEW[1]; const tsp3 = TSP_LOCODES_NEW[2]; const vessel = pickVesselNew();
+      const r = await createTspOtu(ref);
+      await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: null });
+      await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel, event: 'container_arrived', date: SD.arrTsp2, type: 'actual', dataSource: null });
+      const { otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp3, vessel, event: 'container_arrived', date: SD.t1, type: 'actual', dataSource: 'shippeo' });
+      expect(otu?.actualArrivalTsp3 ?? null).toBeNull();
+      expect(otu?.predictedArrivalTsp3 ?? null).toBeNull();
+      expect(otu?.tsp3Locode).toBe(tsp3.unlocode);
+    });
+
+    // ── NEW-N: Negative — TSP Slot 4 estimated/predicted ────────────────────
+
+    test('NEW-N-24 | Slot 4 estimated + DS null → date NOT written · locode NOT claimed (backend rejects unknown event)', async () => {
+      const ref = generateContainerRef(); const tsp1 = TSP_LOCODES_NEW[0]; const tsp2 = TSP_LOCODES_NEW[1]; const tsp3 = TSP_LOCODES_NEW[2]; const tsp4 = TSP_LOCODES_NEW[3]; const vessel = pickVesselNew();
+      const r = await createTspOtu(ref);
+      await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: null });
+      await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel, event: 'container_arrived', date: SD.arrTsp2, type: 'actual', dataSource: null });
+      await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp3, vessel, event: 'container_arrived', date: SD.t1,      type: 'actual', dataSource: null });
+      const { otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp4, vessel, event: 'container_arrived', date: SD.estArr, type: 'estimated', dataSource: null });
+      expect(otu?.estimatedArrivalTsp4 ?? null).toBeNull();
+      expect(otu?.predictedArrivalTsp4 ?? null).toBeNull();
+      expect(otu?.actualArrivalTsp4 ?? null).toBeNull();
+      expect(otu?.tsp4Locode).toBe(tsp4.unlocode);
+    });
+
+    test('NEW-N-25 | Slot 4 estimated + DS carrier → date NOT written', async () => {
+      const ref = generateContainerRef(); const tsp1 = TSP_LOCODES_NEW[0]; const tsp2 = TSP_LOCODES_NEW[1]; const tsp3 = TSP_LOCODES_NEW[2]; const tsp4 = TSP_LOCODES_NEW[3]; const vessel = pickVesselNew();
+      const r = await createTspOtu(ref);
+      await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: null });
+      await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel, event: 'container_arrived', date: SD.arrTsp2, type: 'actual', dataSource: null });
+      await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp3, vessel, event: 'container_arrived', date: SD.t1,      type: 'actual', dataSource: null });
+      const { otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp4, vessel, event: 'container_arrived', date: SD.estArr, type: 'estimated', dataSource: 'carrier' });
+      expect(otu?.estimatedArrivalTsp4 ?? null).toBeNull();
+      expect(otu?.predictedArrivalTsp4 ?? null).toBeNull();
+      expect(otu?.tsp4Locode).toBe(tsp4.unlocode);
+    });
+
+    test('NEW-N-26 | Slot 4 actual + DS external → date NOT written · locode still claimed', async () => {
+      const ref = generateContainerRef(); const tsp1 = TSP_LOCODES_NEW[0]; const tsp2 = TSP_LOCODES_NEW[1]; const tsp3 = TSP_LOCODES_NEW[2]; const tsp4 = TSP_LOCODES_NEW[3]; const vessel = pickVesselNew();
+      const r = await createTspOtu(ref);
+      await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: null });
+      await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel, event: 'container_arrived', date: SD.arrTsp2, type: 'actual', dataSource: null });
+      await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp3, vessel, event: 'container_arrived', date: SD.t1,      type: 'actual', dataSource: null });
+      const { otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp4, vessel, event: 'container_arrived', date: SD.t2, type: 'actual', dataSource: 'external' });
+      expect(otu?.actualArrivalTsp4 ?? null).toBeNull();
+      expect(otu?.estimatedArrivalTsp4 ?? null).toBeNull();
+      expect(otu?.tsp4Locode).toBe(tsp4.unlocode);
+    });
+
+    test('NEW-N-27 | Slot 4 actual + DS shippeo → date NOT written · locode still claimed', async () => {
+      const ref = generateContainerRef(); const tsp1 = TSP_LOCODES_NEW[0]; const tsp2 = TSP_LOCODES_NEW[1]; const tsp3 = TSP_LOCODES_NEW[2]; const tsp4 = TSP_LOCODES_NEW[3]; const vessel = pickVesselNew();
+      const r = await createTspOtu(ref);
+      await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: null });
+      await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel, event: 'container_arrived', date: SD.arrTsp2, type: 'actual', dataSource: null });
+      await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp3, vessel, event: 'container_arrived', date: SD.t1,      type: 'actual', dataSource: null });
+      const { otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp4, vessel, event: 'container_arrived', date: SD.t2, type: 'actual', dataSource: 'shippeo' });
+      expect(otu?.actualArrivalTsp4 ?? null).toBeNull();
+      expect(otu?.predictedArrivalTsp4 ?? null).toBeNull();
+      expect(otu?.tsp4Locode).toBe(tsp4.unlocode);
+    });
+
+    // ── NEW-N: Negative — Wrong situation.event for all TSP slots ────────────
+    // Correct events: container_arrived / container_unloaded / container_loaded / container_departed
+    // Sending an unknown/misspelt event (e.g. "arrived_container") should NOT write any date field.
+    // tspNLocode is still claimed because its condition is event=any.
+
+    test('NEW-N-28 | Slot 1 wrong event "arrived_container" → date NOT written · locode still claimed', async () => {
+      const ref = generateContainerRef(); const tsp = pickTsp(); const vessel = pickVesselNew();
+      const r = await createTspOtu(ref);
+      const { otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'arrived_container', date: SD.arrTsp1, type: 'actual', dataSource: null });
+      expect(otu?.actualArrivalTsp1    ?? null).toBeNull();
+      expect(otu?.actualDischargeTsp1  ?? null).toBeNull();
+      expect(otu?.actualLoadTsp1       ?? null).toBeNull();
+      expect(otu?.actualDepartureTsp1  ?? null).toBeNull();
+      expect(otu?.estimatedArrivalTsp1 ?? null).toBeNull();
+      expect(otu?.tsp1Locode ?? null).toBeNull();
+    });
+
+    test('NEW-N-29 | Slot 1 wrong event "container_unload" (missing d) → date NOT written · locode NOT claimed (backend rejects unknown event)', async () => {
+      const ref = generateContainerRef(); const tsp = pickTsp(); const vessel = pickVesselNew();
+      const r = await createTspOtu(ref);
+      const { otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'container_unload', date: SD.disTsp1, type: 'actual', dataSource: null });
+      expect(otu?.actualDischargeTsp1  ?? null).toBeNull();
+      expect(otu?.estimatedDischargeTsp1 ?? null).toBeNull();
+      expect(otu?.tsp1Locode ?? null).toBeNull();
+    });
+
+    test('NEW-N-30 | Slot 1 wrong event "container_load" (missing ed) → date NOT written · locode NOT claimed (backend rejects unknown event)', async () => {
+      const ref = generateContainerRef(); const tsp = pickTsp(); const vessel = pickVesselNew();
+      const r = await createTspOtu(ref);
+      const { otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'container_load', date: SD.ldTsp1, type: 'actual', dataSource: null });
+      expect(otu?.actualLoadTsp1       ?? null).toBeNull();
+      expect(otu?.estimatedLoadTsp1    ?? null).toBeNull();
+      expect(otu?.tsp1Locode ?? null).toBeNull();
+    });
+
+    test('NEW-N-31 | Slot 1 wrong event "departed_container" → date NOT written · locode NOT claimed (backend rejects unknown event)', async () => {
+      const ref = generateContainerRef(); const tsp = pickTsp(); const vessel = pickVesselNew();
+      const r = await createTspOtu(ref);
+      const { otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp, vessel, event: 'departed_container', date: SD.depTsp1, type: 'actual', dataSource: null });
+      expect(otu?.actualDepartureTsp1  ?? null).toBeNull();
+      expect(otu?.estimatedDepartureTsp1 ?? null).toBeNull();
+      expect(otu?.tsp1Locode ?? null).toBeNull();
+    });
+
+    test('NEW-N-32 | Slot 2 wrong event "arrived_container" → date NOT written · locode NOT claimed (backend rejects unknown event)', async () => {
+      const ref = generateContainerRef(); const tsp1 = TSP_LOCODES_NEW[0]; const tsp2 = TSP_LOCODES_NEW[1]; const vessel = pickVesselNew();
+      const r = await createTspOtu(ref);
+      await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: null });
+      const { otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel, event: 'arrived_container', date: SD.arrTsp2, type: 'actual', dataSource: null });
+      expect(otu?.actualArrivalTsp2    ?? null).toBeNull();
+      expect(otu?.estimatedArrivalTsp2 ?? null).toBeNull();
+      expect(otu?.tsp2Locode ?? null).toBeNull();
+    });
+
+    test('NEW-N-33 | Slot 2 wrong event "container_unload" → date NOT written · locode NOT claimed (backend rejects unknown event)', async () => {
+      const ref = generateContainerRef(); const tsp1 = TSP_LOCODES_NEW[0]; const tsp2 = TSP_LOCODES_NEW[1]; const vessel = pickVesselNew();
+      const r = await createTspOtu(ref);
+      await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: null });
+      const { otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel, event: 'container_unload', date: SD.disTsp2, type: 'actual', dataSource: null });
+      expect(otu?.actualDischargeTsp2  ?? null).toBeNull();
+      expect(otu?.tsp2Locode ?? null).toBeNull();
+    });
+
+    test('NEW-N-34 | Slot 2 wrong event "container_load" → date NOT written · locode NOT claimed (backend rejects unknown event)', async () => {
+      const ref = generateContainerRef(); const tsp1 = TSP_LOCODES_NEW[0]; const tsp2 = TSP_LOCODES_NEW[1]; const vessel = pickVesselNew();
+      const r = await createTspOtu(ref);
+      await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: null });
+      const { otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel, event: 'container_load', date: SD.ldTsp1, type: 'actual', dataSource: null });
+      expect(otu?.actualLoadTsp2       ?? null).toBeNull();
+      expect(otu?.tsp2Locode ?? null).toBeNull();
+    });
+
+    test('NEW-N-35 | Slot 2 wrong event "departed_container" → date NOT written · locode NOT claimed (backend rejects unknown event)', async () => {
+      const ref = generateContainerRef(); const tsp1 = TSP_LOCODES_NEW[0]; const tsp2 = TSP_LOCODES_NEW[1]; const vessel = pickVesselNew();
+      const r = await createTspOtu(ref);
+      await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: null });
+      const { otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel, event: 'departed_container', date: SD.depTsp1, type: 'actual', dataSource: null });
+      expect(otu?.actualDepartureTsp2  ?? null).toBeNull();
+      expect(otu?.tsp2Locode ?? null).toBeNull();
+    });
+
+    test('NEW-N-36 | Slot 3 wrong event "arrived_container" → date NOT written · locode NOT claimed (backend rejects unknown event)', async () => {
+      const ref = generateContainerRef(); const tsp1 = TSP_LOCODES_NEW[0]; const tsp2 = TSP_LOCODES_NEW[1]; const tsp3 = TSP_LOCODES_NEW[2]; const vessel = pickVesselNew();
+      const r = await createTspOtu(ref);
+      await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: null });
+      await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel, event: 'container_arrived', date: SD.arrTsp2, type: 'actual', dataSource: null });
+      const { otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp3, vessel, event: 'arrived_container', date: SD.t1, type: 'actual', dataSource: null });
+      expect(otu?.actualArrivalTsp3    ?? null).toBeNull();
+      expect(otu?.estimatedArrivalTsp3 ?? null).toBeNull();
+      expect(otu?.tsp3Locode ?? null).toBeNull();
+    });
+
+    test('NEW-N-37 | Slot 3 wrong event "departed_container" → date NOT written · locode NOT claimed (backend rejects unknown event)', async () => {
+      const ref = generateContainerRef(); const tsp1 = TSP_LOCODES_NEW[0]; const tsp2 = TSP_LOCODES_NEW[1]; const tsp3 = TSP_LOCODES_NEW[2]; const vessel = pickVesselNew();
+      const r = await createTspOtu(ref);
+      await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: null });
+      await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel, event: 'container_arrived', date: SD.arrTsp2, type: 'actual', dataSource: null });
+      const { otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp3, vessel, event: 'departed_container', date: SD.t2, type: 'actual', dataSource: null });
+      expect(otu?.actualDepartureTsp3  ?? null).toBeNull();
+      expect(otu?.tsp3Locode ?? null).toBeNull();
+    });
+
+    test('NEW-N-38 | Slot 4 wrong event "arrived_container" → date NOT written · locode NOT claimed (backend rejects unknown event)', async () => {
+      const ref = generateContainerRef(); const tsp1 = TSP_LOCODES_NEW[0]; const tsp2 = TSP_LOCODES_NEW[1]; const tsp3 = TSP_LOCODES_NEW[2]; const tsp4 = TSP_LOCODES_NEW[3]; const vessel = pickVesselNew();
+      const r = await createTspOtu(ref);
+      await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: null });
+      await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel, event: 'container_arrived', date: SD.arrTsp2, type: 'actual', dataSource: null });
+      await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp3, vessel, event: 'container_arrived', date: SD.t1,      type: 'actual', dataSource: null });
+      const { otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp4, vessel, event: 'arrived_container', date: SD.t2, type: 'actual', dataSource: null });
+      expect(otu?.actualArrivalTsp4    ?? null).toBeNull();
+      expect(otu?.estimatedArrivalTsp4 ?? null).toBeNull();
+      expect(otu?.tsp4Locode ?? null).toBeNull();
+    });
+
+    test('NEW-N-39 | Slot 4 wrong event "departed_container" → date NOT written · locode NOT claimed (backend rejects unknown event)', async () => {
+      const ref = generateContainerRef(); const tsp1 = TSP_LOCODES_NEW[0]; const tsp2 = TSP_LOCODES_NEW[1]; const tsp3 = TSP_LOCODES_NEW[2]; const tsp4 = TSP_LOCODES_NEW[3]; const vessel = pickVesselNew();
+      const r = await createTspOtu(ref);
+      await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp1, vessel, event: 'container_arrived', date: SD.arrTsp1, type: 'actual', dataSource: null });
+      await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp2, vessel, event: 'container_arrived', date: SD.arrTsp2, type: 'actual', dataSource: null });
+      await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp3, vessel, event: 'container_arrived', date: SD.t1,      type: 'actual', dataSource: null });
+      const { otu } = await sendTspEvent(ref, r.code, { bookingNumber: r.bookingNumber, blNumber: r.blNumber, tsp: tsp4, vessel, event: 'departed_container', date: SD.t2, type: 'actual', dataSource: null });
+      expect(otu?.actualDepartureTsp4  ?? null).toBeNull();
+      expect(otu?.tsp4Locode ?? null).toBeNull();
     });
 
     // ── NEW-E: Edge Cases ─────────────────────────────────────────────────────

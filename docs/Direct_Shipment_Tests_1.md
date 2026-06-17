@@ -38,10 +38,16 @@ No slot logic. Every field maps directly from a single Shippeo payload field to 
 | 20 | `estimatedDeparturePol` | `container_departed` | `estimated` | `external` | `situation.date` |
 | 21 | `estimatedGateInPol` | `container_gate_out_full` | `estimated` | `external` | `situation.date` |
 | 22 | `estimatedLoadPol` | `container_loaded` | `estimated` | `external` | `situation.date` |
-| 23 | `leg1Mot` | `container_loaded` | `actual` | — | `situation.transport_mode` |
-| 24 | `leg1VesselImoNumber` | `container_loaded` | `actual` | — | `resources[milestoneVessel].identifiers[IMO].value` |
-| 25 | `leg1VesselName` | `container_loaded` | `actual` | — | `resources[milestoneVessel].identifiers[LABEL].value` |
+| 23 | `leg1Mot` | `container_loaded` **+ `container_departed`** ⚠️ | any | — | `situation.transport_mode` |
+| 24 | `leg1VesselImoNumber` | `container_loaded` **+ `container_departed`** | any | — | `resources[milestoneVessel].identifiers[IMO].value` |
+| 25 | `leg1VesselName` | `container_loaded` **+ `container_departed`** | any | — | `resources[milestoneVessel].identifiers[LABEL].value` |
 | 26 | `predictedDeparturePol` | `container_departed` | `estimated` | `shippeo` | `situation.date` |
+
+> ⚠️ **Spec Gap — Discovered via automated testing (2026-06-16)**
+> `leg1Mot`, `leg1VesselImoNumber`, and `leg1VesselName` were originally specced as mapping only on `container_loaded`.
+> Backend confirmed they also map on `container_departed + loading` (verified: `leg1Mot = "ocean"` written when `container_departed + loading` sent with transport_mode).
+> All three fields have **no DS or type condition** — they map regardless of estimated/actual/shippeo.
+> Spec updated to reflect actual backend behaviour. Original Excel mapping sheet row 23–25 needs correction.
 
 ### POD (Port of Discharge)
 

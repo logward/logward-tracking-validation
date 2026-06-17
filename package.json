@@ -10,6 +10,8 @@
     "test:road": "npx playwright test --project=road",
     "test:events": "node scripts/runEventTests.js",
     "e2e:session": "node scripts/e2eSession.js",
+    "publish:reports": "node scripts/publishReports.js",
+    "summary": "node 'docs/daily-tracking-summary (1).mjs'",
     "report": "npx playwright show-report",
     "report:air": "npx playwright show-report playwright-report/air",
     "report:ocean": "npx playwright show-report playwright-report/ocean",
