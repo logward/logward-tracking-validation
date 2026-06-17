@@ -41,6 +41,7 @@
 // =============================================================================
 
 // @ts-check
+require('dotenv').config({ path: require('path').resolve(__dirname, '../../.env') });
 const { test, expect, request } = require('@playwright/test');
 
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
@@ -62,21 +63,17 @@ const CONFIG = {
   WEBHOOK_PATH:      '/api/integration-hub/tracking/shippeo/air_tracking',
   WEBHOOK_CLIENT_ID: 'okOiGTvE9mJ6jwxbSZ',
 
-  // Long-lived webhook token (exp ~2027) — override via AIR_WEBHOOK_TOKEN env var
-  WEBHOOK_TOKEN: process.env.AIR_WEBHOOK_TOKEN ||
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2NvdW50SWQiOiIwMDEwUTAwMDAwVFpvc1FRQVQiLCJjb2RlIjoiRkVlRzV0S2hrM3RXIiwiZXhwIjoxODA4NzYzMzAwLCJpc3MiOiJodHRwczovL2NvZ25pdG8taWRwLmV1LWNlbnRyYWwtMS5hbWF6b25hd3MuY29tL2V1LWNlbnRyYWwtMV9HSWwxaXpUN0IiLCJhdWQiOiJsb2d3YXJkLmNvbSJ9.N8lDfXx42AnxfW82RvgY-fTrPikKhqPxZD7crGWmB1A',
+  // Long-lived webhook token (exp ~2027) — set AIR_WEBHOOK_TOKEN in .env
+  WEBHOOK_TOKEN: process.env.AIR_WEBHOOK_TOKEN,
 
   ADMIN_BASE_URL: 'https://qa-admin.logward.engineering',
 
   // ⚠️  Cognito access token — expires every ~1 hour.
   //     When the test fails with HTTP 401 on the GET call, refresh this token:
   //       1. Log in to qa-admin.logward.engineering in your browser
-  //       2. Copy the accessToken from DevTools → Application → Cookies
-  //          OR from Network tab → any admin API request → Authorization header
-  //       3. export AIR_ADMIN_TOKEN="eyJ..."   (paste the fresh token)
-  //       4. Re-run the test
-  ADMIN_TOKEN: process.env.AIR_ADMIN_TOKEN ||
-    'eyJraWQiOiJIOU5CdVoyb3NWN0hpTG9WaEtPWFwvMWRDZHR5QTZnTjM3dDdzUFwvQzJPTFE9IiwiYWxnIjoiUlMyNTYifQ.eyJzdWIiOiJjMzUwOWFhMy02NDM0LTQ0ODktYjcwOC01OTQ3NTRiMjk0ZjgiLCJjb2duaXRvOmdyb3VwcyI6WyJDdXN0b21lckFkbWluIl0sImlzcyI6Imh0dHBzOlwvXC9jb2duaXRvLWlkcC5ldS1jZW50cmFsLTEuYW1hem9uYXdzLmNvbVwvZXUtY2VudHJhbC0xX0dJbDFpelQ3QiIsImNsaWVudF9pZCI6Im1ocTZoN3Y2bjJjZHZqOW1zam9vcThraDQiLCJvcmlnaW5fanRpIjoiNWIyN2NmZWMtNDRjNS00OGVlLWFmM2ItMzM4M2I2YzMzNzgyIiwiZXZlbnRfaWQiOiJhZmFkYzRkNC0yMWUzLTQ5NmQtOWM5ZC1lODc4ZWMxMWRhZTIiLCJ0b2tlbl91c2UiOiJhY2Nlc3MiLCJzY29wZSI6ImF3cy5jb2duaXRvLnNpZ25pbi51c2VyLmFkbWluIiwiYXV0aF90aW1lIjoxNzc5NTQzMTY0LCJleHAiOjE3Nzk3OTU3MDgsImlhdCI6MTc3OTc5MjEwOCwianRpIjoiYzBlNGUzZDEtZDYxZC00Yjc0LTg1YTAtNWE4MmQ2ODRmNThjIiwidXNlcm5hbWUiOiJjMzUwOWFhMy02NDM0LTQ0ODktYjcwOC01OTQ3NTRiMjk0ZjgifQ.C-TFTi5Dgd75Zy5u2LgaLb7X-tA5VaDIkdOSLC0AIH1uj_jx08W8mISBllKi4hF2UEqwoijX7eQIM8cVaoNeEWh0gryMdlmYTywbJN4WBahgIm4ul5OgZCtpK9v6TLqrv366vvVqgS89uAh0c8b-kTe2fErhVvqgZdkYQP2K1OoG9nt4ACe2zxNbSN7ky7PO9YUvcoaeR__bVGW5oU6AI0emO9zxhSMsEW2u4sGEZFA5pPtn0wOzCuQ72Ls5AAMooyKi4vlSmhkUeoeD7fyLp5F7dPaLG1eNjNAARZduVI1sdPXiiuglRrMAPJfSrgKCOKyvFzoC2yySowYnUDuztA',
+  //       2. DevTools → Network → any admin request → Authorization header → copy Bearer value
+  //       3. Set AIR_ADMIN_TOKEN in .env and re-run
+  ADMIN_TOKEN: process.env.AIR_ADMIN_TOKEN,
 
   // ATU under test — UPDATE-ONLY service, ATU must pre-exist in BE
   MAWB_NUMBER:  '9231361818',

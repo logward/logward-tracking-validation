@@ -21,6 +21,8 @@
 //    List all runs:     ls playwright-report/runs/
 // ─────────────────────────────────────────────────────────────────────────────
 
+require('dotenv').config({ path: require('path').resolve(__dirname, '.env') });
+
 const { defineConfig } = require('@playwright/test');
 
 // ── Unique folder per run ─────────────────────────────────────────────────────

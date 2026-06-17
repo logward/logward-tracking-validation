@@ -13,6 +13,8 @@
 //      E2E_ENV=prod    npx playwright test --project=e2e
 // ╚══════════════════════════════════════════════════════════════════════════╝
 
+require('dotenv').config({ path: require('path').resolve(__dirname, '../../.env') });
+
 // ─────────────────────────────────────────────────────────────────────────────
 //  STEP 1 — SELECT ENVIRONMENT
 //  Options: 'qa' | 'sandbox' | 'prod'
@@ -37,8 +39,7 @@ const TOKENS = {
   qa: {
     // ── Webhook token — long-lived (expires 2027) ─────────────────────────
     // Used by: Events-Out webhook (Shippeo → Logward)
-    webhookToken: process.env.QA_WEBHOOK_TOKEN ||
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2NvdW50SWQiOiIwMDEwUTAwMDAwVFpvc1FRQVQiLCJjb2RlIjoiRkVlRzV0S2hrM3RXIiwiZXhwIjoxODA4NzYzMzAwLCJpc3MiOiJodHRwczovL2NvZ25pdG8taWRwLmV1LWNlbnRyYWwtMS5hbWF6b25hd3MuY29tL2V1LWNlbnRyYWwtMV9HSWwxaXpUN0IiLCJhdWQiOiJsb2d3YXJkLmNvbSJ9.N8lDfXx42AnxfW82RvgY-fTrPikKhqPxZD7crGWmB1A',
+    webhookToken: process.env.QA_WEBHOOK_TOKEN,
   },
 
   // ── Sandbox ───────────────────────────────────────────────────────────────
@@ -109,8 +110,8 @@ const E2E_CONFIG = {
   // ── Cognito credentials — used by cognitoAuth.js to auto-login ──────────
   // Set once; cognitoAuth.js refreshes the token automatically every ~1h
   COGNITO: {
-    username: process.env.LOGWARD_USERNAME || 'kvsm.vikas@logward.com',
-    password: process.env.LOGWARD_PASSWORD || 'ftc6zpy-hkg5gwr5BXY',
+    username: process.env.LOGWARD_USERNAME,
+    password: process.env.LOGWARD_PASSWORD,
   },
 
   // ── Admin API — all use Cognito token via cognitoAuth.js ─────────────────
@@ -131,11 +132,11 @@ const E2E_CONFIG = {
   // Headless login fires once per day (~3 sec), then auto-refreshes every 15 min.
   SHIPPEO: {
     baseUrl:        process.env.SHIPPEO_API_BASE_URL || 'https://api.shippeo.com',
-    clientId:       '4571962d-46de-4590-b196-2d46deb59066',
+    clientId:       process.env.SHIPPEO_CLIENT_ID      || '<paste Shippeo client ID here>',
 
     // ── Credentials — set once, works forever via headless browser login ──────
-    username:       process.env.SHIPPEO_USERNAME || 'kvsm.vikas@shippeo.com',
-    password:       process.env.SHIPPEO_PASSWORD || 'wge0ytz.qfr*BUX-fhx',
+    username:       process.env.SHIPPEO_USERNAME,
+    password:       process.env.SHIPPEO_PASSWORD,
 
     // ── Leave blank — tokens obtained automatically ───────────────────────────
     refreshToken:   process.env.SHIPPEO_REFRESH_TOKEN || '',
