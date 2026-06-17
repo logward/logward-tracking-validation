@@ -206,6 +206,43 @@
         ⏭ No Orders-In report provided for this run. Run <code>npx playwright test --project=ocean OceanOrdersIn</code> to generate one.
       </div>
     </section>
+    
+    <section class="card" style="border-left:4px solid #f59e0b;">
+      <header class="card-head">
+        <div>
+          <div class="card-eyebrow">Wrong-Event Verification</div>
+          <h2>TSP Unknown Event Names</h2>
+        </div>
+        <span class="pill pill-pass">ALL PASS</span>
+      </header>
+      <div class="card-body">
+        <div class="donut-wrap">
+  <svg viewBox="0 0 100 100" class="donut" aria-label="pass rate 100.0%">
+    <circle cx="50" cy="50" r="42" stroke="#e5e7eb" stroke-width="12" fill="none"/>
+    <circle cx="50" cy="50" r="42" stroke="#16a34a" stroke-width="12" fill="none"
+            stroke-linecap="round"
+            stroke-dasharray="263.89 263.89"
+            transform="rotate(-90 50 50)"/>
+    <text x="50" y="49" text-anchor="middle" font-size="18" font-weight="700" fill="#0f172a">100%</text>
+    <text x="50" y="64" text-anchor="middle" font-size="8" fill="#64748b" letter-spacing="0.5">PASS RATE</text>
+  </svg></div>
+        <dl class="kvs">
+          <div><dt>Checks run</dt><dd>16</dd></div>
+          <div><dt>Passed</dt><dd class="ok">16</dd></div>
+          <div><dt>Failed</dt><dd class="muted">0</dd></div>
+          <div><dt>Run date</dt><dd>2026-06-16 19:54:49 UTC</dd></div>
+        </dl>
+      </div>
+      <div class="flow-groups-wrap" style="padding:0 20px 16px;border-top:1px solid #f1f5f9;">
+        <div class="flow-group" style="margin-top:12px">
+          <div class="flow-group-row">
+            <span class="flow-group-label">🟠 Wrong event names (arrived_container, container_unload, etc.)</span>
+            <span class="flow-group-count">16/16 — backend rejects unknown events entirely</span>
+          </div>
+          <div class="bar"><div class="bar-fill" style="width:100.0%;background:#22c55e"></div></div>
+        </div>
+      </div>
+    </section>
   </div>
 
   <section class="panel panel-ok">
@@ -219,8 +256,8 @@
 
   <div class="sources">
     Sources:
-    <div><a href="https://github.com/logward/logward-tracking-validation/blob/trackingsMap/playwright-report/sessions/session-2026-06-17T01-19-41.html">https://github.com/logward/logward-tracking-validation/blob/trackingsMap/playwright-report/sessions/session-2026-06-17T01-19-41.html</a></div>
-    <div style="margin-top:6px">Generated 2026-06-17T01:21:18.327Z</div>
+    <div><a href="https://github.com/logward/logward-tracking-validation/blob/trackingsMap/playwright-report/sessions/session-2026-06-17T01-19-41.html">https://github.com/logward/logward-tracking-validation/blob/trackingsMap/playwright-report/sessions/session-2026-06-17T01-19-41.html</a></div><div><a href="https://github.com/logward/logward-tracking-validation/blob/trackingsMap/playwright-report/sessions/session-2026-06-16T19-54-49.html">https://github.com/logward/logward-tracking-validation/blob/trackingsMap/playwright-report/sessions/session-2026-06-16T19-54-49.html</a></div>
+    <div style="margin-top:6px">Generated 2026-06-17T01:38:02.722Z</div>
   </div>
 </div>
 </body></html>
