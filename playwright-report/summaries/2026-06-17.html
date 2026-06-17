@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Tracking Daily Summary — 2026-06-17</title>
+<style>
+    *,*::before,*::after{box-sizing:border-box}
+    html,body{margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Inter,sans-serif;
+         background:#f6f7fb;color:#0f172a;font-size:14px;line-height:1.5;}
+    .wrap{max-width:1100px;margin:0 auto;padding:24px;}
+    .hero{background:linear-gradient(135deg,#1e293b 0%,#0f172a 50%,#312e81 100%);
+          color:#fff;border-radius:14px;padding:28px 32px;box-shadow:0 10px 30px -10px rgba(15,23,42,.35);}
+    .hero .eyebrow{font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:#94a3b8;}
+    .hero h1{font-size:1.8rem;margin:4px 0 12px;font-weight:700;letter-spacing:-.01em;}
+    .hero .summary{display:flex;align-items:center;gap:10px;font-size:1rem;color:#e2e8f0;}
+    .hero .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:22px;}
+    .kpi{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+         border-radius:10px;padding:14px 16px;}
+    .kpi label{display:block;font-size:.7rem;letter-spacing:.12em;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;}
+    .kpi value{display:block;font-size:1.6rem;font-weight:700;}
+    .kpi.ok value{color:#86efac}
+    .kpi.bad value{color:#fca5a5}
+    .kpi.dim value{color:#cbd5e1}
+
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(440px,1fr));gap:18px;margin-top:18px;}
+    .card{background:#fff;border-radius:12px;border:1px solid #e2e8f0;
+          box-shadow:0 1px 2px rgba(15,23,42,.04);overflow:hidden;}
+    .card-head{display:flex;justify-content:space-between;align-items:flex-start;
+               padding:18px 20px;border-bottom:1px solid #f1f5f9;}
+    .card-eyebrow{font-size:.68rem;letter-spacing:.16em;text-transform:uppercase;color:#64748b;}
+    .card-head h2{margin:2px 0 0;font-size:1.05rem;font-weight:700;}
+    .card-body{display:flex;align-items:center;gap:20px;padding:18px 20px;}
+    .donut-wrap{flex:0 0 130px}
+    .donut{width:130px;height:130px}
+    .kvs{display:grid;grid-template-columns:1fr 1fr;gap:8px 18px;margin:0;flex:1;}
+    .kvs > div{display:flex;flex-direction:column;}
+    .kvs dt{font-size:.7rem;color:#64748b;text-transform:uppercase;letter-spacing:.08em;}
+    .kvs dd{margin:0;font-size:1rem;font-weight:600;}
+    .kvs dd.ok{color:#16a34a}
+    .kvs dd.bad{color:#dc2626}
+    .kvs dd.muted{color:#94a3b8}
+
+    .pill{display:inline-block;padding:4px 12px;border-radius:999px;font-size:.7rem;font-weight:700;letter-spacing:.08em;}
+    .pill-pass{background:#dcfce7;color:#166534}
+    .pill-fail{background:#fee2e2;color:#991b1b}
+    .pill-warn{background:#fef3c7;color:#92400e}
+
+    .chips{display:flex;flex-wrap:wrap;gap:6px;padding:14px 20px 18px;border-top:1px solid #f1f5f9;}
+    .chip{background:#f1f5f9;color:#334155;padding:4px 10px;border-radius:6px;font-size:.75rem;}
+    .chip b{margin-right:6px;color:#64748b;font-weight:600;}
+
+    .groups{padding:6px 20px 18px;border-top:1px solid #f1f5f9;}
+    .group{margin-top:12px}
+    .group-row{display:flex;justify-content:space-between;font-size:.78rem;margin-bottom:4px;}
+    .group-label{font-weight:600;color:#334155}
+    .group-counts{color:#64748b}
+    .bar{background:#f1f5f9;height:8px;border-radius:4px;overflow:hidden;}
+    .flow-groups-wrap{}
+    .flow-group{margin-top:12px}
+    .flow-group-row{display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:5px;}
+    .flow-group-label{font-weight:600;color:#334155;font-size:.88rem;}
+    .flow-group-count{color:#64748b;font-size:.82rem;}
+    .bar-fill{height:100%;border-radius:4px;transition:width .4s ease;}
+
+    .panel{background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:20px 22px;margin-top:18px;
+           box-shadow:0 1px 2px rgba(15,23,42,.04);}
+    .panel h2{font-size:1rem;margin:0 0 12px;display:flex;align-items:center;gap:10px;}
+    .panel h2 .count{background:#fee2e2;color:#991b1b;font-size:.72rem;font-weight:700;
+                     padding:2px 10px;border-radius:10px;}
+    .panel-ok h2 .count, .d-ok h3 .count{background:#dcfce7;color:#166534}
+    .panel.panel-fail{border-left:4px solid #ef4444}
+    .panel.panel-ok{border-left:4px solid #22c55e}
+    .muted{color:#94a3b8}
+    .big{font-size:1.05rem;}
+
+    .failure{background:#fffbfb;border:1px solid #fee2e2;border-radius:10px;padding:14px 16px;margin-bottom:10px;}
+    .failure header{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:8px;}
+    .failure .seq{background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:6px;font-weight:700;font-size:.78rem;}
+    .failure .ev-name{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:700;color:#0f172a;}
+    .failure .ts{margin-left:auto;font-size:.75rem;color:#94a3b8;}
+    .tag{font-size:.7rem;font-weight:700;letter-spacing:.05em;padding:2px 8px;border-radius:10px;}
+    .tag-positive{background:#dcfce7;color:#166534}
+    .tag-negative{background:#fee2e2;color:#991b1b}
+    .tag-update{background:#dbeafe;color:#1e40af}
+    .tag-neutral{background:#e2e8f0;color:#475569;text-transform:none;font-weight:600;}
+    .tag-warn{background:#fef3c7;color:#92400e}
+
+    .atable{width:100%;border-collapse:collapse;margin-top:6px;font-size:.82rem;}
+    .atable th{text-align:left;padding:6px 8px;color:#64748b;font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;
+               border-bottom:1px solid #fee2e2;}
+    .atable td{padding:8px 8px;border-bottom:1px solid #fff5f5;vertical-align:top;}
+    .atable tr.row-blocked{background:#fffbeb}
+    .atable code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#f8fafc;padding:1px 6px;border-radius:4px;font-size:.78rem;}
+    .atable code.exp{background:#fee2e2;color:#991b1b;}
+    .reason{margin:6px 0 0;color:#991b1b;font-size:.85rem;}
+
+    .diff-block{margin-top:12px;}
+    .diff-block h3{font-size:.85rem;margin:0 0 6px;display:flex;align-items:center;gap:8px;}
+    .diff-block .count{background:#fee2e2;color:#991b1b;font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:10px;}
+    .diff-block ul{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px;}
+    .diff-block li code{background:#f8fafc;border:1px solid #e2e8f0;padding:3px 8px;border-radius:6px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.78rem;}
+    .d-new li code{background:#fee2e2;border-color:#fecaca;color:#991b1b}
+    .d-ok li code{background:#dcfce7;border-color:#bbf7d0;color:#166534}
+    .d-still li code{background:#fef3c7;border-color:#fde68a;color:#92400e}
+
+    .sources{margin-top:18px;font-size:.78rem;color:#64748b;}
+    .sources a{color:#475569;text-decoration:none;border-bottom:1px dotted #94a3b8;word-break:break-all;}
+
+    @media (max-width:640px){
+      .hero .kpis{grid-template-columns:repeat(2,1fr)}
+      .card-body{flex-direction:column;align-items:flex-start}
+      .donut-wrap{align-self:center}
+    }
+    @page{size:A4;margin:14mm 12mm;}
+    @media print{
+      body{background:#fff;font-size:12px;}
+      .wrap{max-width:none;padding:0;}
+      .hero{box-shadow:none;border-radius:10px;page-break-inside:avoid;}
+      .card,.panel{box-shadow:none;page-break-inside:avoid;}
+      .grid{grid-template-columns:1fr 1fr;}
+      .failure{page-break-inside:avoid;}
+      .sources a{border-bottom:none;color:#475569;}
+    }
+  </style>
+</head><body>
+<div class="wrap">
+  <div class="hero">
+    <div class="eyebrow">Daily Tracking Summary</div>
+    <h1>2026-06-17 · Logward E2E</h1>
+    <div class="summary"><span style="font-size:1.4rem">✅</span><span>All checks passed</span></div>
+    <div class="kpis">
+      <div class="kpi"><label>Overall</label><value class="ok">PASS</value></div>
+      <div class="kpi dim"><label>Pass rate</label><value>100.0%</value></div>
+      <div class="kpi dim"><label>Tests run</label><value>113</value></div>
+      <div class="kpi ok"><label>Failures</label><value>0</value></div>
+    </div>
+  </div>
+
+  <div class="grid">
+    
+    <section class="card">
+      <header class="card-head">
+        <div>
+          <div class="card-eyebrow">Session report</div>
+          <h2>E2E Session Report</h2>
+        </div>
+        <span class="pill pill-pass">PASS</span>
+      </header>
+      <div class="card-body">
+        <div class="donut-wrap">
+  <svg viewBox="0 0 100 100" class="donut" aria-label="pass rate 100.0%">
+    <circle cx="50" cy="50" r="42" stroke="#e5e7eb" stroke-width="12" fill="none"/>
+    <circle cx="50" cy="50" r="42" stroke="#16a34a" stroke-width="12" fill="none"
+            stroke-linecap="round"
+            stroke-dasharray="263.89 263.89"
+            transform="rotate(-90 50 50)"/>
+    <text x="50" y="49" text-anchor="middle" font-size="18" font-weight="700" fill="#0f172a">100%</text>
+    <text x="50" y="64" text-anchor="middle" font-size="8" fill="#64748b" letter-spacing="0.5">PASS RATE</text>
+  </svg></div>
+        <dl class="kvs">
+          <div><dt>Events run</dt><dd>113</dd></div>
+          <div><dt>Passed</dt><dd class="ok">113</dd></div>
+          <div><dt>Failed</dt><dd class="muted">0</dd></div>
+          <div><dt>Duration</dt><dd>20m 35s</dd></div>
+          <div><dt>Run date</dt><dd>2026-06-17 01:19:41 UTC</dd></div>
+        </dl>
+      </div>
+      <div class="flow-groups-wrap" style="padding:0 20px 16px;border-top:1px solid #f1f5f9;">
+          <div class="flow-group">
+            <div class="flow-group-row">
+              <span class="flow-group-label">🟢 Positive Flow</span>
+              <span class="flow-group-count">50/50</span>
+            </div>
+            <div class="bar"><div class="bar-fill" style="width:100.0%;background:#22c55e"></div></div>
+          </div>
+          <div class="flow-group">
+            <div class="flow-group-row">
+              <span class="flow-group-label">🔴 Negative Flow</span>
+              <span class="flow-group-count">50/50</span>
+            </div>
+            <div class="bar"><div class="bar-fill" style="width:100.0%;background:#22c55e"></div></div>
+          </div>
+          <div class="flow-group">
+            <div class="flow-group-row">
+              <span class="flow-group-label">🟣 Legacy Test</span>
+              <span class="flow-group-count">1/1</span>
+            </div>
+            <div class="bar"><div class="bar-fill" style="width:100.0%;background:#22c55e"></div></div>
+          </div></div>
+      
+      <div class="chips">
+        <span class="chip"><b>Object Code</b>55c8ecc23f7e</span><span class="chip"><b>Container No</b>LGTE0147660</span><span class="chip"><b>Booking No</b>—</span><span class="chip"><b>Bill of Lading</b>SESBL47660</span><span class="chip"><b>SCAC</b>MSCU</span><span class="chip"><b>Shippeo Verified</b>✅ Yes</span><span class="chip"><b>Shippeo Order ID</b>145558850</span>
+      </div>
+    </section>
+    
+    <section class="card" style="border-left:4px solid #f59e0b;">
+      <header class="card-head">
+        <div>
+          <div class="card-eyebrow">Flow report</div>
+          <h2>Ocean Orders-In Flow</h2>
+        </div>
+        <span class="pill pill-warn">SKIPPED</span>
+      </header>
+      <div class="card-body" style="color:#92400e;font-size:.9rem;padding:20px;">
+        ⏭ No Orders-In report provided for this run. Run <code>npx playwright test --project=ocean OceanOrdersIn</code> to generate one.
+      </div>
+    </section>
+  </div>
+
+  <section class="panel panel-ok">
+         <h2>Failures</h2>
+         <p class="muted big">🎉 No failures today.</p>
+       </section>
+  <section class="panel">
+      <h2>Vs 2026-06-16</h2>
+      <p class="muted">No change since last run.</p>
+    </section>
+
+  <div class="sources">
+    Sources:
+    <div><a href="https://github.com/logward/logward-tracking-validation/blob/trackingsMap/playwright-report/sessions/session-2026-06-17T01-19-41.html">https://github.com/logward/logward-tracking-validation/blob/trackingsMap/playwright-report/sessions/session-2026-06-17T01-19-41.html</a></div>
+    <div style="margin-top:6px">Generated 2026-06-17T01:21:18.327Z</div>
+  </div>
+</div>
+</body></html>
