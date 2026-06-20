@@ -133,12 +133,25 @@ async function getOTU(objectCode) {
   return res.body?.data ?? res.body;
 }
 
-async function pollOTUChanged(objectCode, baseline, timeoutMs = 25000) {
+async function pollOTUChanged(objectCode, baseline, timeoutMs = 25000, settleMs = 5000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     await new Promise(r => setTimeout(r, 2500));
     const otu = await getOTU(objectCode).catch(() => null);
-    if (otu?.lastChangedAt && otu.lastChangedAt !== baseline) return otu;
+    if (otu?.lastChangedAt && otu.lastChangedAt !== baseline) {
+      // First change detected — settle phase: wait up to settleMs for writes to finish,
+      // but exit early if lastChangedAt fires again (fresher snapshot available).
+      const settleDeadline = Date.now() + settleMs;
+      let latestChangedAt = otu.lastChangedAt;
+      let latest = otu;
+      while (Date.now() < settleDeadline) {
+        await new Promise(r => setTimeout(r, 1000));
+        const fresh = await getOTU(objectCode).catch(() => null);
+        if (fresh) latest = fresh;
+        if (fresh?.lastChangedAt && fresh.lastChangedAt !== latestChangedAt) return fresh;
+      }
+      return latest;
+    }
   }
   return await getOTU(objectCode).catch(() => null);
 }
@@ -332,6 +345,8 @@ const TSP_FIELDS = {
   'leg2VesselImoNumber':    { event: 'container_loaded',   sitType: 'actual',    dataSource: null },
   'leg3VesselImoNumber':    { event: 'container_loaded',   sitType: 'actual',    dataSource: null },
   'leg4VesselImoNumber':    { event: 'container_loaded',   sitType: 'actual',    dataSource: null },
+  'leg5VesselImoNumber':    { event: 'container_loaded',   sitType: 'actual',    dataSource: null },
+  'leg5VesselName':         { event: 'container_loaded',   sitType: 'actual',    dataSource: null },
 };
 
 const TSP_LOCODES = [
@@ -569,10 +584,11 @@ const FIELD_MAPPING_CONDITIONS = {
   actualDischargePod:           { condition: 'event=container_unloaded + place_type=discharge + type=actual',                source: 'situation.date' },
   estimatedDischargePod:        { condition: 'event=container_unloaded + place_type=discharge + type=estimated + DS=external',         source: 'situation.date' },
   predictedDischargePod:        { condition: 'event=container_unloaded + place_type=discharge + type=estimated + DS=shippeo',          source: 'situation.date' },
-  // container_arrived → actual only | container_unloaded → actual or estimated | eta_event → estimated only
-  // For session assertion: use actual type as the common condition (container_arrived + actual maps; estimated doesn't)
-  trackingArrivingVesselImo:       { condition: 'event=container_arrived/container_unloaded + place_type=discharge + type=actual + milestoneVessel.IMO present',   source: 'resources[milestoneVessel].IMO' },
-  trackingArrivingVesselVesselName:{ condition: 'event=container_arrived/container_unloaded + place_type=discharge + type=actual + milestoneVessel.LABEL present', source: 'resources[milestoneVessel].LABEL' },
+  // Maps for all three discharge events regardless of type/DS — vessel data always written when milestoneVessel is present
+  // Maps for: container_arrived+actual | container_unloaded+actual/estimated | eta_event+estimated
+  // Does NOT map for: container_arrived+estimated (spec: actual only when vessel arrives)
+  trackingArrivingVesselImo:       { condition: 'event=container_arrived/container_unloaded/eta_event + place_type=discharge + milestoneVessel.IMO present',   source: 'resources[milestoneVessel].IMO' },
+  trackingArrivingVesselVesselName:{ condition: 'event=container_arrived/container_unloaded/eta_event + place_type=discharge + milestoneVessel.LABEL present', source: 'resources[milestoneVessel].LABEL' },
   actualGateOutPod:             { condition: 'event=container_gate_out_full + place_type=discharge + type=actual',           source: 'situation.date' },
   estimatedGateOutPod:          { condition: 'event=container_gate_out_full + place_type=discharge + type=estimated + DS=external',    source: 'situation.date' },
   predictedGateOutPod:          { condition: 'event=container_gate_out_full + place_type=discharge + type=estimated + DS=shippeo',     source: 'situation.date' },
@@ -865,9 +881,22 @@ function buildAssertions(opts, otu, { date, site, vessel, polSite, podSite, otuB
   // ALL conditions met  → field SHOULD map → positive assert
   // ANY condition fails → field SHOULD NOT map → checkNotChanged
   // Fields for a different event: evaluated silently (affect pass/fail but not printed)
+  //
+  // Special blocks on trackingArrivingVesselImo / trackingArrivingVesselVesselName only:
+  //   1. container_arrived + estimated → vessel does NOT map (spec: actual arrival only)
+  //   2. TSHG (Tailwind) + eta_event + external DS → vessel does NOT map
+  //      TSHG + eta_event + shippeo DS → vessel DOES map (shippeo provides confirmed vessel)
+  const trackingVesselFields = ['trackingArrivingVesselImo', 'trackingArrivingVesselVesselName'];
+  const arrivedEstimatedBlock = event === 'container_arrived' && sentType !== 'actual';
+  const tshgEtaExternalBlock  = session.carrierScac === 'TSHG'
+    && event === 'eta_event'
+    && sentDS === 'external';
+
   function assertDirect(field) {
     const relevant = isRelevantToEvent(field);
-    const met = allConditionsMet(field);
+    // forceNotChanged applies to trackingArrivingVesselImo + trackingArrivingVesselVesselName only
+    const forceNotChanged = trackingVesselFields.includes(field) && (arrivedEstimatedBlock || tshgEtaExternalBlock);
+    const met = !forceNotChanged && allConditionsMet(field);
     if (met) {
       const exp = getExpectedValue(field);
       if (exp === null) {
@@ -922,7 +951,8 @@ function buildAssertions(opts, otu, { date, site, vessel, polSite, podSite, otuB
 
     // Vessel fields: no type/DS condition — assert outside type branches
     // Skip in negative date-field tests — vessel may not have been set by prior events
-    if (VS <= 4) {
+    // VS=5 is valid: INCREMENT from TSP4 (slot 4) → leg5 vessel
+    if (VS <= 5) {
       // TSP-specific conditions for vessel (not the direct POL condition from FIELD_MAPPING_CONDITIONS)
       const isIncr = event === 'container_loaded' || event === 'container_departed';
       const tspVesselConditions = [
@@ -1060,31 +1090,41 @@ function printEventResult(result) {
 //  OTU Setup
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function setupOtuCode() {
-  banner('OTU SETUP — Create via Code');
-  console.log(`${C.gray}Creating TransportUnitOcean with BL + CN + SCAC + InProgress (no BN)...${C.reset}`);
+const CARRIER_PROFILES = {
+  MSCU: { shortName: 'MSC',      name: 'Mediterranean Shipping Company' },
+  MAEU: { shortName: 'Maersk',   name: 'Maersk Line'                    },
+  CMDU: { shortName: 'CMA CGM',  name: 'CMA CGM'                        },
+  COSU: { shortName: 'COSCO',    name: 'COSCO Shipping'                 },
+  HLCU: { shortName: 'Hapag-Lloyd', name: 'Hapag-Lloyd'                 },
+  TSHG: { shortName: 'Tailwind', name: 'Tailwind Shipping'              },
+};
+
+async function setupOtuCode(carrierScac = 'MSCU') {
+  const carrier = CARRIER_PROFILES[carrierScac] || { shortName: carrierScac, name: carrierScac };
+  banner(`OTU SETUP — Create via Code (${carrierScac})`);
+  console.log(`${C.gray}Creating TransportUnitOcean with BL + CN + SCAC=${carrierScac} + InProgress (no BN)...${C.reset}`);
 
   const ts = String(Date.now()).slice(-5);
   const cn = `LGTE01${ts}`;
   const bl = `SESBL${ts}`;
 
-  const r = await createOTU({ containerNumber: cn, billOfLadingNumber: bl, carrierScac: 'MSCU', carrierShortName: 'MSC', carrierName: 'Mediterranean Shipping Company' });
+  const r = await createOTU({ containerNumber: cn, billOfLadingNumber: bl, carrierScac, carrierShortName: carrier.shortName, carrierName: carrier.name });
   if (!r.code) { err('Failed to create OTU'); return false; }
 
   session.objectCode      = r.code;
   session.containerNumber = cn;
   session.bookingNumber   = null;
   session.blNumber        = bl;
-  session.carrierScac     = 'MSCU';
-  session.carrierShortName= 'MSC';
-  session.carrierName     = 'Mediterranean Shipping Company';
+  session.carrierScac     = carrierScac;
+  session.carrierShortName= carrier.shortName;
+  session.carrierName     = carrier.name;
 
   // Fix POL and POD for the entire session — realistic, never changes mid-session
   session.polSite = pickRandom(DIRECT_SITES['loading']);
   session.podSite = pickRandom(DIRECT_SITES['discharge']);
 
   ok(`OTU created → code=${r.code} CN=${cn}`);
-  info(`BL: ${bl}  |  SCAC: MSCU  |  BN: none`);
+  info(`BL: ${bl}  |  SCAC: ${carrierScac}  |  BN: none`);
   info(`POL: ${session.polSite.unlocode} (${session.polSite.city})  |  POD: ${session.podSite.unlocode} (${session.podSite.city})`);
   info(`These stay fixed for all events in this session (real-world: set at booking)`);
   return true;
@@ -1296,7 +1336,7 @@ async function selectAndRunEvents(flowType) {
     // For vessel: keep placeType=transhipment for assertions (so TSP block runs + checks
     // checkNotChanged), but send payloadPlaceType="Port" in the actual webhook.
     const dsFreeLocodeFields = ['tsp1Locode','tsp2Locode','tsp3Locode','tsp4Locode'];
-    const dsFreeVesselFields = ['leg1VesselImoNumber','leg1VesselName','leg2VesselImoNumber','leg2VesselName','leg3VesselImoNumber','leg3VesselName','leg4VesselImoNumber','leg4VesselName'];
+    const dsFreeVesselFields = ['leg1VesselImoNumber','leg1VesselName','leg2VesselImoNumber','leg2VesselName','leg3VesselImoNumber','leg3VesselName','leg4VesselImoNumber','leg4VesselName','leg5VesselImoNumber','leg5VesselName'];
     const isTspLocode = pType === 'transhipment' && dsFreeLocodeFields.includes(fieldKey);
     const isTspVessel = pType === 'transhipment' && dsFreeVesselFields.includes(fieldKey);
 
@@ -1349,36 +1389,8 @@ async function selectAndRunEvents(flowType) {
       const isIncrement = (meta.event === 'container_loaded' || meta.event === 'container_departed');
       const vesselLeg   = slotNum ? (isIncrement ? slotNum + 1 : slotNum) : null;
 
-      // Slot limit check: TSP supports max 4 slots. INCREMENT at slot 4 → leg5 (out of range).
-      if (vesselLeg && vesselLeg > 4) {
-        console.log('');
-        console.log(`  ${C.yellow}⚠  TSP SLOT LIMIT REACHED${C.reset}`);
-        console.log(`  ${C.gray}─────────────────────────────────────────────────────${C.reset}`);
-        console.log(`  ${C.yellow}Field    : ${fieldKey}${C.reset}`);
-        console.log(`  ${C.yellow}Reason   : Logward supports max 4 TSP slots (leg1–leg4).${C.reset}`);
-        console.log(`  ${C.yellow}           ${meta.event} at slot ${slotNum} (INCREMENT) would write leg${vesselLeg},${C.reset}`);
-        console.log(`  ${C.yellow}           which is beyond the supported range.${C.reset}`);
-        console.log(`  ${C.yellow}Behaviour: Backend silently skips leg${vesselLeg} — no vessel written.${C.reset}`);
-        console.log(`  ${C.yellow}           This is expected — not a test failure.${C.reset}`);
-        console.log(`  ${C.gray}─────────────────────────────────────────────────────${C.reset}`);
-        console.log('');
-
-        // Push as informational event — not a pass/fail
-        session.events.push({
-          timestamp: new Date().toISOString(),
-          event: meta.event, placeType: pType, situationType: 'actual', dataSource: null,
-          flowType: 'slot-limit', webhookStatus: null, pass: true, duration: 0,
-          assertions: [], negativeStrategy: null, payloadPlaceType: null,
-          slotLimitInfo: {
-            field: fieldKey, slot: slotNum, vesselLeg,
-            message: `Logward supports max 4 TSP slots (leg1–leg4). ${meta.event} at slot ${slotNum} (INCREMENT) would write leg${vesselLeg} which is out of range. Backend silently skips — expected behaviour.`,
-          },
-        });
-        continue;
-      }
-
-      // Pick unique vessel for this leg — no two legs share the same vessel in positive flow
-      eventOpts.vessel = !autoNegative && vesselLeg && vesselLeg <= 4
+      // Pick unique vessel for this leg — leg5 is valid (INCREMENT from TSP4 → leg5)
+      eventOpts.vessel = !autoNegative && vesselLeg && vesselLeg <= 5
         ? getOrAssignVesselForLeg(vesselLeg)
         : pickRandom(VESSELS);
       console.log(`  ${C.gray}→ TSP slot ${slotNum || '?'}: ${tsp.unlocode} (${tsp.timezone})  Vessel leg${vesselLeg || '?'}: ${eventOpts.vessel.name}${C.reset}`);
@@ -2021,10 +2033,11 @@ async function main() {
   } else {
     // ── Step 2: Code or manual? ──────────────────────────────────────────
     banner('OTU SETUP');
-    const setupAns = await ask(`${C.bold}Create OTU through CODE or enter details MANUALLY? (code/manual): ${C.reset}`);
+    const setupAns = await ask(`${C.bold}Create OTU through CODE, CODE-TSHG (Tailwind), or MANUAL? (code/code-tshg/manual): ${C.reset}`);
     let setupOk;
-    if (setupAns.toLowerCase() === 'manual') setupOk = await setupOtuManual();
-    else                                      setupOk = await setupOtuCode();
+    if      (setupAns.toLowerCase() === 'manual')    setupOk = await setupOtuManual();
+    else if (setupAns.toLowerCase() === 'code-tshg') setupOk = await setupOtuCode('TSHG');
+    else                                              setupOk = await setupOtuCode();
     if (!setupOk) { err('OTU setup failed. Exiting.'); rl.close(); return; }
 
     // ── Shippeo backoffice verification (required before sending any events) ─

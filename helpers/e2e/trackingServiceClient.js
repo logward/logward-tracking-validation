@@ -87,8 +87,9 @@ async function fetchTrackingDocuments(identifiers) {
 
     const body = raw ? JSON.parse(raw) : null;
     if (!body) return [];
-    // Response is wrapped: { data: [...] } — unwrap before returning
-    const results = body?.data ?? (Array.isArray(body) ? body : [body]);
+    // Response is wrapped: { data: [...] } or { data: {} } — always return an array
+    const inner = body?.data ?? body;
+    const results = Array.isArray(inner) ? inner : [];
     return results;
 
   } finally {

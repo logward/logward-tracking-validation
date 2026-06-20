@@ -64,7 +64,8 @@ module.exports = defineConfig({
     {
       name: 'ocean',
       testDir: './tests/e2e/ocean',
-      timeout: 180000,
+      timeout: 600000,  // 10 min — covers NEW-V-07 with 12 sequential events
+      retries: 1,       // auto-retry once on transient failures (502, Shippeo slow)
       reporter: [
         ['html', { outputFolder: `${RUN_DIR}/ocean`, open: 'never' }],
         ['./helpers/e2e/eventsOutReporter.js', { outputFile: `${RUN_DIR}/ocean/events-out-report.html` }],
