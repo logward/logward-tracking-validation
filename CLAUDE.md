@@ -72,14 +72,14 @@ Credentials stored in `e2eConfig.js` → `COGNITO.username / password`.
 Token cached to `.cognito-token-cache.json` — survives across describe blocks.
 No manual steps needed.
 
-### Shippeo Token
-**Semi-automatic** — seed once per day when expired:
-```bash
-node helpers/e2e/seedShippeoToken.js
-# Browser opens → log in → closes automatically → token saved to .shippeo-token-cache.json
-```
-After seeding, auto-refreshes every 15 min for the rest of the session.
-If cache is stale (overnight): `rm .shippeo-token-cache.json` then re-seed.
+// ### Shippeo Token
+// **Semi-automatic** — seed once per day when expired:
+// ```bash
+// node helpers/e2e/seedShippeoToken.js
+// # Browser opens → log in → closes automatically → token saved to .shippeo-token-cache.json
+// ```
+// After seeding, auto-refreshes every 15 min for the rest of the session.
+// If cache is stale (overnight): `rm .shippeo-token-cache.json` then re-seed.
 
 ### Webhook Token
 Long-lived (expires 2027) — already in config. No action needed.

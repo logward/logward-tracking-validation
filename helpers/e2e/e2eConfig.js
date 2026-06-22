@@ -68,8 +68,8 @@ const ENVIRONMENTS = {
     trackingUrl:     'https://qa.logward.engineering',
     webhookUrl:      'https://qa.logward.engineering',
     webhookPath:     '/api/integration-hub/tracking/shippeo/ocean_order_event_out',
-    webhookClientId: 'Vbc1r8621FLbtFFl2E',
-    accountId:       'Vbc1r8621FLbtFFl2E',
+    webhookClientId: 'wCQU29iqXuWMYkTcU6',
+    accountId:       'wCQU29iqXuWMYkTcU6',
   },
   sandbox: {
     label:           'Sandbox',
@@ -77,8 +77,8 @@ const ENVIRONMENTS = {
     trackingUrl:     'https://sandbox-admin.logward.com',
     webhookUrl:      'https://sandbox-admin.logward.com',
     webhookPath:     '/api/integration-hub/tracking/shippeo/ocean_order_event_out',
-    webhookClientId: '0010Q00001iPMHnQAO',
-    accountId:       '<FILL_IN>',
+    webhookClientId: 'wCQU29iqXuWMYkTcU6',
+    accountId:       'wCQU29iqXuWMYkTcU6',
   },
   prod: {
     label:           'Production',
@@ -131,7 +131,7 @@ const E2E_CONFIG = {
   // shippeoAuth.js priority: memory cache → disk cache → headless browser login
   // Headless login fires once per day (~3 sec), then auto-refreshes every 15 min.
   SHIPPEO: {
-    baseUrl:        process.env.SHIPPEO_API_BASE_URL || 'https://api.shippeo.com',
+    baseUrl:        process.env.SHIPPEO_API_BASE_URL || 'https://sf.core.qa.shippeo.com',
     clientId:       process.env.SHIPPEO_CLIENT_ID      || '<paste Shippeo client ID here>',
 
     // ── Credentials — set once, works forever via headless browser login ──────

@@ -82,6 +82,9 @@ async function searchShippeoShipment(reference) {
     const body = await res.json();
     // Handle both array and paginated { data: [...] } response shapes
     const results = Array.isArray(body) ? body : (body.data ?? body.orders ?? body.shipments ?? []);
+    if (results.length === 0) {
+      console.log(`  [shippeo] 200 OK but 0 results — body keys: ${Object.keys(body).join(', ')}`);
+    }
     return results.length > 0 ? results[0] : null;
 
   } finally {
@@ -101,7 +104,10 @@ async function pollUntilShippeoShipmentFound(reference, timeoutMs = E2E_CONFIG.S
   const deadline = Date.now() + timeoutMs;
 
   while (Date.now() < deadline) {
-    const shipment = await searchShippeoShipment(reference).catch(() => null);
+    const shipment = await searchShippeoShipment(reference).catch(e => {
+      console.error(`  [shippeo ❌] searchShippeoShipment threw: ${e.message}`);
+      return null;
+    });
     if (shipment) {
       console.log(`  [shippeo ✅] Shipment found for reference="${reference}"`);
       return shipment;
@@ -111,7 +117,10 @@ async function pollUntilShippeoShipmentFound(reference, timeoutMs = E2E_CONFIG.S
   }
 
   console.warn(`  [shippeo ⚠️] Timed out after ${timeoutMs}ms.`);
-  return searchShippeoShipment(reference).catch(() => null);
+  return searchShippeoShipment(reference).catch(e => {
+    console.error(`  [shippeo ❌] Final attempt threw: ${e.message}`);
+    return null;
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
