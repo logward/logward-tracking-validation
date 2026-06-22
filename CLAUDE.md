@@ -18,7 +18,7 @@ helpers/
     cognitoAuth.js          — Auto-login for Logward admin (kvsm.vikas@logward.com)
     shippeoAuth.js          — Auto-refresh Shippeo token (headless seeder or disk cache)
     seedShippeoToken.js     — Run once per session: opens browser, captures Shippeo token
-    trackingObjectFactory.js — Create/read TransportUnitOcean via external API
+    trackingObjectFactory.js — Create/read TUContainer via external API
     trackingSchedulerClient.js — Scheduler API + OTU-derived fallback
     trackingServiceClient.js   — MongoDB xtrackings check
     shippeoApiClient.js     — Shippeo search + order details assertions
@@ -89,8 +89,8 @@ Long-lived (expires 2027) — already in config. No action needed.
 ## Key Architecture Decisions
 
 ### URLs (QA environment)
-- **OTU create/update**: `qa.logward.engineering/api/tower/data/TransportUnitOcean/upsert` + Cognito token
-- **OTU read**: `qa-admin.logward.engineering/api/tower/data/TransportUnitOcean/{code}` + Cognito token
+- **OTU create/update**: `qa.logward.engineering/api/tower/data/TUContainer/upsert` + Cognito token
+- **OTU read**: `qa-admin.logward.engineering/api/tower/data/TUContainer/{code}` + Cognito token
 - **Scheduler**: `qa.logward.engineering/api/tracking/track/schedule/...` + Cognito token
 - **MongoDB check**: `qa.logward.engineering/api/tracking/...` + Cognito token
 - **Webhook (events)**: `qa.logward.engineering/api/integration-hub/tracking/shippeo/ocean_order_event_out` + webhook token

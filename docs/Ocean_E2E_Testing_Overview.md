@@ -168,7 +168,7 @@ delivery_site.unlocode→ carrierUpdatedLocodePod   = "AEJEA"               ✅
 
 | Test | What is verified |
 |---|---|
-| A-01 | Create `TransportUnitOcean` → all stored fields correct |
+| A-01 | Create `TUContainer` → all stored fields correct |
 | A-02 | Scheduler: `active=1`, `valid=1` |
 | A-03 | MongoDB `xtrackings` doc exists, `error=false` |
 | A-04 | Shippeo: shipment searchable by reference |

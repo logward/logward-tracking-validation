@@ -1102,7 +1102,7 @@ const CARRIER_PROFILES = {
 async function setupOtuCode(carrierScac = 'MSCU') {
   const carrier = CARRIER_PROFILES[carrierScac] || { shortName: carrierScac, name: carrierScac };
   banner(`OTU SETUP — Create via Code (${carrierScac})`);
-  console.log(`${C.gray}Creating TransportUnitOcean with BL + CN + SCAC=${carrierScac} + InProgress (no BN)...${C.reset}`);
+  console.log(`${C.gray}Creating TUContainer with BL + CN + SCAC=${carrierScac} + InProgress (no BN)...${C.reset}`);
 
   const ts = String(Date.now()).slice(-5);
   const cn = `LGTE01${ts}`;

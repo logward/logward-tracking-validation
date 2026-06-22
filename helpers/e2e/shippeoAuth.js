@@ -131,14 +131,12 @@ function fetchTokenFromCredentials(username, password, baseUrl) {
       method:   'POST',
       headers:  {
         'Authorization': `Basic ${credentials}`,
-        'Content-Type':  'application/json',
-        'Content-Length': 0,
       },
     }, (res) => {
       let raw = '';
       res.on('data', c => { raw += c; });
       res.on('end', () => {
-        if (res.statusCode !== 200) {
+        if (res.statusCode < 200 || res.statusCode >= 300) {
           reject(new Error(`HTTP ${res.statusCode}: ${raw.slice(0, 300)}`));
           return;
         }
@@ -171,11 +169,11 @@ async function getShippeoToken() {
   }
 
   // ── 2. Try credentials-based API (SHIPPEO_USERNAME + SHIPPEO_PASSWORD) ─────
-  const { username, password } = shippeo;
-  if (username && password && !username.startsWith('<') && !password.startsWith('<')) {
+  const { Username, Password } = shippeo;
+  if (Username && Password && !Username.startsWith('<') && !Password.startsWith('<')) {
     try {
       console.log(`\n  [shippeoAuth] Fetching token via credentials API...`);
-      const token = await fetchTokenFromCredentials(username, password, shippeo.baseUrl);
+      const token = await fetchTokenFromCredentials(Username, Password, shippeo.authBaseUrl);
       _cachedAccessToken = token;
       const exp    = tokenExpiresAt(token);
       _accessExpMs = exp || (Date.now() + 55 * 60 * 1000);

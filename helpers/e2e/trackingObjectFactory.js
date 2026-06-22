@@ -4,7 +4,7 @@
 //  Creates and reads Logward tracking objects via the Admin API.
 //
 //  OCEAN upsert endpoint (confirmed from curl):
-//    POST /api/tower/data/TransportUnitOcean/upsert?createNew=true
+//    POST /api/tower/data/TUContainer/upsert?createNew=true
 //    Body: { "data": [{ ...fields }] }
 //
 //  VALID creation combos (Auto Tracking Conditions):
@@ -145,14 +145,14 @@ async function createOceanTrackingObject(overrides = {}) {
 
     if (res.status() === 401) {
       throw new Error(
-        `Create TransportUnitOcean → HTTP 401 Unauthorized.\n` +
+        `Create TUContainer → HTTP 401 Unauthorized.\n` +
         `  Cognito token may have expired. cognitoAuth.js will re-login automatically on next run.`
       );
     }
 
     if (!res.ok()) {
       const body = await res.text();
-      throw new Error(`Create TransportUnitOcean → HTTP ${res.status()}\n  ${body}`);
+      throw new Error(`Create TUContainer → HTTP ${res.status()}\n  ${body}`);
     }
 
     const body = await res.json();
@@ -162,13 +162,13 @@ async function createOceanTrackingObject(overrides = {}) {
 
     if (!code) {
       throw new Error(
-        `TransportUnitOcean upsert succeeded (HTTP ${res.status()}) but no code found in response.\n` +
+        `TUContainer upsert succeeded (HTTP ${res.status()}) but no code found in response.\n` +
         `  Response: ${JSON.stringify(body)}\n` +
         `  Update extractCode() in trackingObjectFactory.js to handle this shape.`
       );
     }
 
-    console.log(`  [factory ✅] Created TransportUnitOcean → code="${code}" container="${containerNumber}"`);
+    console.log(`  [factory ✅] Created TUContainer → code="${code}" container="${containerNumber}"`);
     return { code, containerNumber };
 
   } finally {
@@ -179,7 +179,7 @@ async function createOceanTrackingObject(overrides = {}) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Read a TransportUnitOcean by its internal code (GET).
+ * Read a TUContainer by its internal code (GET).
  * Used to snapshot the object state before sending Events-Out webhooks.
  *
  * @param code  Logward internal object code
@@ -202,7 +202,7 @@ async function getOceanTrackingObject(code) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Delete a TransportUnitOcean by code (optional test cleanup).
+ * Delete a TUContainer by code (optional test cleanup).
  *
  * @param code
  */
@@ -213,7 +213,7 @@ async function deleteOceanTrackingObject(code) {
       `${E2E_CONFIG.OCEAN.GET_PATH}/${code}`,
       { headers: adminHeaders() }
     );
-    console.log(`  [factory] DELETE TransportUnitOcean/${code} → HTTP ${res.status()}`);
+    console.log(`  [factory] DELETE TUContainer/${code} → HTTP ${res.status()}`);
   } finally {
     await ctx.dispose();
   }

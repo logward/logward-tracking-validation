@@ -18,17 +18,17 @@ const { E2E_CONFIG } = require('./e2eConfig');
 (async () => {
   const username = process.env.SHIPPEO_USERNAME;
   const password = process.env.SHIPPEO_PASSWORD;
-  const baseUrl  = E2E_CONFIG.SHIPPEO.baseUrl;
+  const authBaseUrl = E2E_CONFIG.SHIPPEO.authBaseUrl;
 
   if (!username || !password) {
     console.error('\n  ❌ SHIPPEO_USERNAME and SHIPPEO_PASSWORD must be set in .env');
     process.exit(1);
   }
 
-  console.log(`\n  Fetching Shippeo token for ${username} from ${baseUrl}...`);
+  console.log(`\n  Fetching Shippeo token for ${username} from ${authBaseUrl}...`);
 
   try {
-    const token = await fetchTokenFromCredentials(username, password, baseUrl);
+    const token = await fetchTokenFromCredentials(username, password, authBaseUrl);
     console.log('\n  ✅ Token obtained:');
     console.log(`  ${token}`);
   } catch (e) {

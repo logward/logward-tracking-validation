@@ -188,7 +188,7 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
   //  BLOCK A — ORDERS-IN
   // ===========================================================================
 
-  test('A-01 | Orders-In: Create TransportUnitOcean and fetch its stored fields', async () => {
+  test('A-01 | Orders-In: Create TUContainer and fetch its stored fields', async () => {
     const result = await createOceanTrackingObject();
     state.objectCode      = result.code;
     state.containerNumber = result.containerNumber;
