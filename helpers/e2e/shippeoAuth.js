@@ -169,11 +169,12 @@ async function getShippeoToken() {
   }
 
   // ── 2. Try credentials-based API (SHIPPEO_USERNAME + SHIPPEO_PASSWORD) ─────
-  const { Username, Password } = shippeo;
-  if (Username && Password && !Username.startsWith('<') && !Password.startsWith('<')) {
+  const username = shippeo.Username || shippeo.username;
+  const password = shippeo.Password || shippeo.password;
+  if (username && password && !username.startsWith('<') && !password.startsWith('<')) {
     try {
       console.log(`\n  [shippeoAuth] Fetching token via credentials API...`);
-      const token = await fetchTokenFromCredentials(Username, Password, shippeo.authBaseUrl);
+      const token = await fetchTokenFromCredentials(username, password, shippeo.authBaseUrl);
       _cachedAccessToken = token;
       const exp    = tokenExpiresAt(token);
       _accessExpMs = exp || (Date.now() + 55 * 60 * 1000);
