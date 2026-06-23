@@ -38,6 +38,15 @@ function deriveActiveValid(otu) {
   return { active, valid };
 }
 
+// Air ATC rules (similar to Ocean but with MAWB instead of container/booking)
+function deriveActiveValidAir(atu) {
+  const active    = atu?.trackingStatus === 'In Progress' ? 1 : 0;
+  const hasMAWB   = !!atu?.masterAirWaybillNumber;
+  const hasCarrier = !!(atu?.carrierScac || atu?.carrierShortName || atu?.carrierName);
+  const valid = (active === 1 && hasMAWB && hasCarrier) ? 1 : 0;
+  return { active, valid };
+}
+
 async function getActiveValidFromOtu(objectCode) {
   const { getOceanTrackingObject } = require('./trackingObjectFactory');
   const raw = await getOceanTrackingObject(objectCode).catch(() => null);
@@ -45,6 +54,16 @@ async function getActiveValidFromOtu(objectCode) {
   if (!otu) return null;  // non-existent code → null, not {active:0,valid:0}
   const result = deriveActiveValid(otu);
   console.log(`  [scheduler] Derived from OTU fields: active=${result.active} valid=${result.valid}`);
+  return result;
+}
+
+async function getActiveValidFromAtu(objectCode) {
+  const { getAirTrackingObject } = require('../air/airTrackingObjectFactory');
+  const raw = await getAirTrackingObject(objectCode).catch(() => null);
+  const atu = Array.isArray(raw) ? raw[0] : raw;
+  if (!atu) return null;
+  const result = deriveActiveValidAir(atu);
+  console.log(`  [scheduler] Derived from ATU fields: active=${result.active} valid=${result.valid}`);
   return result;
 }
 
@@ -81,8 +100,9 @@ async function getTrackingSchedule(schemaType, objectCode) {
       return null;
     }
 
-    // Scheduler API error — fall back to OTU derivation
-    console.log(`  [scheduler] GET HTTP ${status} — falling back to OTU derivation`);
+    // Scheduler API error — fall back to object derivation
+    console.log(`  [scheduler] GET HTTP ${status} — falling back to ${schemaType} derivation`);
+    if (schemaType === 'airTransportUnit') return await getActiveValidFromAtu(objectCode);
     return await getActiveValidFromOtu(objectCode);
 
   } finally {
@@ -118,13 +138,15 @@ async function pollUntilSchedulerActive(
     await new Promise(r => setTimeout(r, E2E_CONFIG.POLL_INTERVAL_MS));
   }
 
-  // Real scheduler timed out — fall back to OTU-derived values so tests can proceed
-  console.warn(`  [scheduler ⚠️] Timed out after ${timeoutMs}ms — falling back to OTU derivation`);
-  const derived = await getActiveValidFromOtu(objectCode);
+  // Real scheduler timed out — fall back to object-derived values so tests can proceed
+  console.warn(`  [scheduler ⚠️] Timed out after ${timeoutMs}ms — falling back to ${schemaType} derivation`);
+  const derived = schemaType === 'airTransportUnit'
+    ? await getActiveValidFromAtu(objectCode)
+    : await getActiveValidFromOtu(objectCode);
   if (derived) {
     console.log(`  [scheduler] Derived: active=${derived.active} valid=${derived.valid}`);
   }
   return derived;
 }
 
-module.exports = { getTrackingSchedule, pollUntilSchedulerActive };
+module.exports = { getTrackingSchedule, pollUntilSchedulerActive, deriveActiveValidAir };

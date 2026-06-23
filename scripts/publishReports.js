@@ -15,10 +15,11 @@ const { execSync } = require('child_process');
 const fs   = require('fs');
 const path = require('path');
 
-const ROOT         = path.resolve(__dirname, '..');
-const SESSIONS_DIR = path.join(ROOT, 'playwright-report', 'sessions');
-const RUNS_DIR     = path.join(ROOT, 'playwright-report', 'runs');
-const REPO         = 'logward/logward-tracking-validation';
+const ROOT          = path.resolve(__dirname, '..');
+const SESSIONS_DIR  = path.join(ROOT, 'playwright-report', 'sessions');
+const RUNS_DIR      = path.join(ROOT, 'playwright-report', 'runs');
+const SUMMARIES_DIR = path.join(ROOT, 'playwright-report', 'summaries');
+const REPO          = 'logward/logward-tracking-validation';
 
 function run(cmd) {
   return execSync(cmd, { cwd: ROOT, encoding: 'utf8', stdio: 'pipe' }).trim();
@@ -52,6 +53,18 @@ function collectReports(branch) {
     });
   }
 
+  if (fs.existsSync(SUMMARIES_DIR)) {
+    fs.readdirSync(SUMMARIES_DIR)
+      .filter(f => f.endsWith('.html'))
+      .sort().reverse()
+      .forEach(f => {
+        const date = f.replace('summary-', '').replace('.html', '');
+        const filePath = `playwright-report/summaries/${f}`;
+        const url = `https://htmlpreview.github.io/?https://github.com/${REPO}/blob/${branch}/${filePath}`;
+        reports.push({ type: 'Daily Summary', date, url, filePath });
+      });
+  }
+
   return reports;
 }
 
@@ -60,7 +73,7 @@ function buildIndex(reports, branch) {
 
   const rows = reports.map(r => `
     <tr>
-      <td><span class="badge ${r.type === 'Events-Out' ? 'ev' : 'oi'}">${r.type}</span></td>
+      <td><span class="badge ${r.type === 'Events-Out' ? 'ev' : r.type === 'Daily Summary' ? 'ds' : 'oi'}">${r.type}</span></td>
       <td class="date">${r.date} UTC</td>
       <td><a href="${r.url}" target="_blank">Open Report →</a></td>
     </tr>`).join('');
@@ -91,6 +104,7 @@ function buildIndex(reports, branch) {
     .badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.7rem;font-weight:700;}
     .badge.ev{background:#c6f6d5;color:#22543d;}
     .badge.oi{background:#bee3f8;color:#2a4365;}
+    .badge.ds{background:#e9d8fd;color:#44337a;}
     .date{color:#718096;font-size:.82rem;white-space:nowrap;}
   </style>
 </head>

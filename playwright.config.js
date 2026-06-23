@@ -63,7 +63,7 @@ module.exports = defineConfig({
     },
     {
       name: 'ocean',
-      testDir: './tests/e2e/ocean',
+      testDir: './tests/ocean',
       timeout: 600000,  // 10 min — covers NEW-V-07 with 12 sequential events
       retries: 1,       // auto-retry once on transient failures (502, Shippeo slow)
       reporter: [
@@ -77,15 +77,6 @@ module.exports = defineConfig({
       testDir: './tests/road',
       reporter: [
         ['html', { outputFolder: `${RUN_DIR}/road`, open: 'never' }],
-        ['list'],
-      ],
-    },
-    {
-      name: 'e2e',
-      testDir: './tests/e2e',
-      timeout: 180000,
-      reporter: [
-        ['html', { outputFolder: `${RUN_DIR}/e2e`, open: 'never' }],
         ['list'],
       ],
     },

@@ -159,10 +159,80 @@ async function pollUntilTrackingDocCreated(identifiers, timeoutMs = E2E_CONFIG.M
   return extractSuccessDocuments(all);
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  AIR — MongoDB tracking document check
+//
+//  Endpoint (assumed — verify against Logward API if it changes):
+//    POST api/tracking/track/shippeo/air/get
+//    Body: { mawbId, scacCode }
+//
+//  Returns empty array if endpoint is not yet available (soft check).
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function fetchAirTrackingDocuments({ mawb, scacCode }) {
+  const ctx = await request.newContext({ baseURL: E2E_CONFIG.TRACKING_BASE_URL });
+  try {
+    const reqBody = { mawbId: mawb, scacCode };
+    console.log(`  [tracking-air] POST body:`, JSON.stringify(reqBody));
+
+    const res = await ctx.post('api/tracking/track/shippeo/air/get', {
+      headers: await headers(),
+      data:    reqBody,
+    });
+
+    const status = res.status();
+    const raw    = await res.text();
+    console.log(`  [tracking-air] HTTP ${status} → ${raw.slice(0, 400)}`);
+
+    if (!res.ok()) {
+      console.warn(`  [tracking-air] Endpoint returned ${status} — Air MongoDB check skipped`);
+      return [];
+    }
+
+    const body = raw ? JSON.parse(raw) : null;
+    if (!body) return [];
+    const inner = body?.data ?? body;
+    return Array.isArray(inner) ? inner : [];
+
+  } catch (e) {
+    console.warn(`  [tracking-air] Error — ${e.message} — Air MongoDB check skipped`);
+    return [];
+  } finally {
+    await ctx.dispose();
+  }
+}
+
+/**
+ * Poll Air MongoDB until at least one success document is found.
+ * Soft check — returns empty array (not a thrown error) if endpoint unavailable.
+ *
+ * @param {{ mawb: string, scacCode: string }} identifiers
+ * @param [timeoutMs]
+ */
+async function pollUntilAirTrackingDocCreated(identifiers, timeoutMs = E2E_CONFIG.MONGO_TIMEOUT_MS) {
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    const all     = await fetchAirTrackingDocuments(identifiers);
+    const success = extractSuccessDocuments(all);
+    console.log(`  [tracking-air ⏳] total=${all.length} success=${success.length}`);
+    if (success.length > 0) {
+      console.log(`  [tracking-air ✅] ${success.length} Air tracking document(s) found in MongoDB`);
+      return success;
+    }
+    await new Promise(r => setTimeout(r, E2E_CONFIG.POLL_INTERVAL_MS));
+  }
+
+  console.warn(`  [tracking-air ⚠️] Timed out after ${timeoutMs}ms`);
+  return fetchAirTrackingDocuments(identifiers);
+}
+
 module.exports = {
   buildTrackingServiceBody,
   fetchTrackingDocuments,
   extractSuccessDocuments,
   extractScheduleRecords,
   pollUntilTrackingDocCreated,
+  fetchAirTrackingDocuments,
+  pollUntilAirTrackingDocCreated,
 };

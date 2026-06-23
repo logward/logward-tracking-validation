@@ -726,7 +726,7 @@ function buildHtml(reports, diff, date, urls, wrongEventReport = null) {
 <div class="wrap">
   <div class="hero">
     <div class="eyebrow">Daily Tracking Summary</div>
-    <h1>${esc(date)} · Logward E2E</h1>
+    <h1>${esc(date)} · Logward x Shippeo E2E</h1>
     <div class="summary"><span style="font-size:1.4rem">${heroIcon}</span><span>${esc(heroText)}</span></div>
     <div class="kpis">
       <div class="kpi"><label>Overall</label><value class="${overallOk ? 'ok' : 'bad'}">${overallOk ? 'PASS' : 'FAIL'}</value></div>
@@ -816,9 +816,16 @@ async function main() {
     console.error('Usage: node daily-tracking-summary.mjs <session-report-url> <flow-report-url>');
     process.exit(2);
   }
-  // Fetch all URLs, auto-classify: session with WRONG EVENT badges = wrong-event report
+  // Fetch all URLs, auto-classify: session with ONLY wrong-event badges = wrong-event report
+  // A session that also has POSITIVE/NEGATIVE/LEGACY flows is a main session (mixed run)
   const allHtmls = await Promise.all(urls.map(blobToRaw).map(fetchText));
-  const isWrongEventSession = (h) => (h.match(/flow-wrong|WRONG EVENT/g) || []).length > 5;
+  const isWrongEventSession = (h) => {
+    const hasWrong = (h.match(/<span class="flow-wrong"/g) || []).length > 3;
+    const hasPositive = /<span class="flow-pos"/.test(h);
+    const hasNegative = /<span class="flow-neg"/.test(h);
+    const hasLegacy = /<span class="flow-legacy"/.test(h);
+    return hasWrong && !hasPositive && !hasNegative && !hasLegacy;
+  };
   const mainHtmls    = allHtmls.filter(h => !isWrongEventSession(h));
   const wrongEventHtmlRaw = allHtmls.find(h => isWrongEventSession(h)) || null;
   const reports      = mainHtmls.slice(0, 2).map(parseReport);

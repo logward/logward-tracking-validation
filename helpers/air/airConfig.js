@@ -41,6 +41,12 @@ const CONFIG = {
 
   SCHEMA_TYPE: 'airTransportUnit',
 
+  // ── E2E Orders-In — ATU create/update via upsert API ──────────────────────
+  // POST upsert goes to qa.logward.engineering (not qa-admin)
+  ADMIN_UPSERT_BASE_URL: 'https://qa.logward.engineering',
+  UPSERT_PATH:           '/api/tower/data/airTransportUnit/upsert',
+  GET_PATH:              '/api/tower/data/airTransportUnit',
+
   // ── Polling ────────────────────────────────────────────────────────────────
   POLL_INTERVAL_MS: 3000,
   POLL_TIMEOUT_MS:  30000,

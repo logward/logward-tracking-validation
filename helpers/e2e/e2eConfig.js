@@ -45,7 +45,7 @@ const TOKENS = {
   // ── Sandbox ───────────────────────────────────────────────────────────────
   sandbox: {
     adminToken:   process.env.SANDBOX_ADMIN_TOKEN   || '<paste Sandbox admin token here>',
-    webhookToken: process.env.SANDBOX_WEBHOOK_TOKEN || '<paste Sandbox webhook token here>',
+    webhookToken: process.env.SANDBOX_WEBHOOK_TOKEN || '',
   },
 
   // ── Production ────────────────────────────────────────────────────────────

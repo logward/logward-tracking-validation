@@ -216,8 +216,19 @@ function assertShippeoOrderDetails(details, { containerNumber, bookingNumber, bl
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Build the Shippeo search reference for Air.
+ * Air shipments are searched by masterAirWaybillNumber directly.
+ *
+ * @param {{ mawb: string }} ids
+ */
+function buildAirReference({ mawb }) {
+  return mawb;
+}
+
 module.exports = {
   buildOceanReference,
+  buildAirReference,
   searchShippeoShipment,
   pollUntilShippeoShipmentFound,
   getShippeoOrderDetails,

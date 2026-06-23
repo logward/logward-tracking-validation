@@ -500,8 +500,9 @@ function generateReport(outputPath) {
         'ocean', 'ordersIn-flow-report.html'
       );
 
+  const { E2E_CONFIG } = require('./e2eConfig');
   fs.mkdirSync(path.dirname(dest), { recursive: true });
-  fs.writeFileSync(dest, buildHtml({ generatedAt: now, environment: 'QA' }), 'utf8');
+  fs.writeFileSync(dest, buildHtml({ generatedAt: now, environment: E2E_CONFIG.ENV_LABEL }), 'utf8');
   console.log(`\n  📊 Orders-In Flow Report → ${dest}\n`);
   return dest;
 }
