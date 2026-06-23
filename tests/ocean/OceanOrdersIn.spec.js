@@ -56,27 +56,27 @@
 
 const { test, expect, request } = require('@playwright/test');
 
-const { E2E_CONFIG }                             = require('../../../helpers/e2e/e2eConfig');
+const { E2E_CONFIG }                             = require('../../helpers/e2e/e2eConfig');
 const { createOceanTrackingObject,
-        getOceanTrackingObject }                 = require('../../../helpers/e2e/trackingObjectFactory');
+        getOceanTrackingObject }                 = require('../../helpers/e2e/trackingObjectFactory');
 const { pollUntilSchedulerActive,
-        getTrackingSchedule }                    = require('../../../helpers/e2e/trackingSchedulerClient');
+        getTrackingSchedule }                    = require('../../helpers/e2e/trackingSchedulerClient');
 const { pollUntilTrackingDocCreated,
         fetchTrackingDocuments,
-        extractSuccessDocuments }                = require('../../../helpers/e2e/trackingServiceClient');
+        extractSuccessDocuments }                = require('../../helpers/e2e/trackingServiceClient');
 const { buildOceanReference,
         pollUntilShippeoShipmentFound,
         searchShippeoShipment,
         getShippeoOrderDetails,
-        assertShippeoOrderDetails }              = require('../../../helpers/e2e/shippeoApiClient');
-const { assertField }                            = require('../../../helpers/air/airValidation');
-const { getAdminToken }                          = require('../../../helpers/e2e/cognitoAuth');
-const R                                          = require('../../../helpers/e2e/ordersInFlowReporter');
+        assertShippeoOrderDetails }              = require('../../helpers/e2e/shippeoApiClient');
+const { assertField }                            = require('../../helpers/air/airValidation');
+const { getAdminToken }                          = require('../../helpers/e2e/cognitoAuth');
+const R                                          = require('../../helpers/e2e/ordersInFlowReporter');
 const {
   makePayload, toEventSite,
   PRE_DATES, POL_DATES, POD_DATES, DEL_DATES,
-} = require('../../../helpers/ocean/oceanPayloadFactory');
-const V = require('../../../helpers/ocean/oceanEventsValidator');
+} = require('../../helpers/ocean/oceanPayloadFactory');
+const V = require('../../helpers/ocean/oceanEventsValidator');
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Config shortcuts
@@ -936,6 +936,7 @@ test.describe('GROUP U | Update to valid=1 — partial OTU upgraded after update
         carrierScac:    ids.carrier.scac,
         trackingStatus: 'In Progress',
       }, state.objectCode);
+      R.step('S-21', 'update', { status:'pass', fields: { trackingStatus: 'In Progress', bookingNumber: ids.bn, carrierScac: ids.carrier.scac } });
     });
 
     test('S-21 | Step 4 | Scheduler after update: active=1 valid=1 [GATE]', async () => {
@@ -998,6 +999,7 @@ test.describe('GROUP U | Update to valid=1 — partial OTU upgraded after update
         carrierScac:    ids.carrier.scac,
         trackingStatus: 'In Progress',
       }, state.objectCode);
+      R.step('S-22', 'update', { status:'pass', fields: { carrierScac: ids.carrier.scac } });
     });
 
     test('S-22 | Step 4 | Scheduler after update: active=1 valid=1 [GATE]', async () => {

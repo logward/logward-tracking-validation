@@ -45,7 +45,7 @@ const TOKENS = {
   // ── Sandbox ───────────────────────────────────────────────────────────────
   sandbox: {
     adminToken:   process.env.SANDBOX_ADMIN_TOKEN   || '<paste Sandbox admin token here>',
-    webhookToken: process.env.SANDBOX_WEBHOOK_TOKEN || '<paste Sandbox webhook token here>',
+    webhookToken: process.env.SANDBOX_WEBHOOK_TOKEN || '',
   },
 
   // ── Production ────────────────────────────────────────────────────────────
@@ -77,8 +77,8 @@ const ENVIRONMENTS = {
     trackingUrl:     'https://sandbox-admin.logward.com',
     webhookUrl:      'https://sandbox-admin.logward.com',
     webhookPath:     '/api/integration-hub/tracking/shippeo/ocean_order_event_out',
-    webhookClientId: '0010Q00001iPMHnQAO',
-    accountId:       '<FILL_IN>',
+    webhookClientId: 'wCQU29iqXuWMYkTcU6',
+    accountId:       'wCQU29iqXuWMYkTcU6',
   },
   prod: {
     label:           'Production',
@@ -149,9 +149,9 @@ const E2E_CONFIG = {
   // ── OCEAN shipment identifiers ────────────────────────────────────────────
   // Override any value via environment variable if needed
   OCEAN: {
-    SCHEMA_TYPE:   'TransportUnitOcean',
-    UPSERT_PATH:   '/api/tower/data/TransportUnitOcean/upsert',
-    GET_PATH:      '/api/tower/data/TransportUnitOcean',
+    SCHEMA_TYPE:   'TUContainer',
+    UPSERT_PATH:   `/api/tower/data/TUContainer/upsert`,
+    GET_PATH:      `/api/tower/data/TUContainer`,
     CREATE_NEW:    true,
 
     // Last 4 digits of timestamp make these unique per run — avoids routing to stale OTUs
