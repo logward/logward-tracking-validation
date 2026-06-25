@@ -59,12 +59,12 @@
     .cond-cell{vertical-align:top;overflow:visible;}
     .cond-block{background:#f7fafc;border:1px solid #e2e8f0;border-radius:4px;padding:6px 8px;margin-bottom:4px;overflow:visible;}
     .cond-title{font-size:.7rem;font-weight:700;color:#4a5568;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;}
-    .cond-table{width:100%;border-collapse:collapse;font-size:.72rem;table-layout:auto;}
+    .cond-table{width:100%;border-collapse:collapse;font-size:.72rem;table-layout:fixed;}
     .cond-table td{padding:2px 6px;vertical-align:top;word-break:break-word;overflow-wrap:anywhere;}
     .cond-row.cond-fail td{background:#fff5f5;}
-    .cond-key{font-family:monospace;color:#2d3748;font-weight:600;word-break:break-all;}
-    .cond-required{color:#718096;white-space:nowrap;}
-    .cond-sent{color:#2d3748;white-space:nowrap;}
+    .cond-key{font-family:monospace;color:#2d3748;font-weight:600;word-break:break-word;overflow-wrap:anywhere;width:38%;}
+    .cond-required{color:#718096;width:33%;word-break:break-word;}
+    .cond-sent{color:#2d3748;width:29%;word-break:break-word;}
     .cond-summary{font-size:.72rem;padding:3px 6px;border-radius:3px;margin-top:3px;font-weight:600;}
     .cond-summary.pos{background:#c6f6d5;color:#22543d;}
     .cond-summary.neg{background:#fed7d7;color:#9b2335;}
@@ -1371,7 +1371,7 @@
           <td>✅</td>
           <td class="cond-key">resources[milestoneVessel].LABEL</td>
           <td class="cond-required">required: <code>present</code></td>
-          <td class="cond-sent">sent: <code>9525243</code></td>
+          <td class="cond-sent">sent: <code>MAERSK STOCKHOLM</code></td>
         </tr></table>
         </div><div class="cond-summary pos">All conditions met → field should map</div></td>
         <td><code>MAERSK STOCKHOLM</code></td>
@@ -1549,7 +1549,7 @@
           <td>✅</td>
           <td class="cond-key">resources[milestoneVessel].LABEL</td>
           <td class="cond-required">required: <code>present</code></td>
-          <td class="cond-sent">sent: <code>9525243</code></td>
+          <td class="cond-sent">sent: <code>MAERSK STOCKHOLM</code></td>
         </tr></table>
         </div><div class="cond-summary pos">All conditions met → field should map</div></td>
         <td><code>MAERSK STOCKHOLM</code></td>
@@ -1708,7 +1708,7 @@
           <td>✅</td>
           <td class="cond-key">resources[milestoneVessel].LABEL</td>
           <td class="cond-required">required: <code>present</code></td>
-          <td class="cond-sent">sent: <code>9839284</code></td>
+          <td class="cond-sent">sent: <code>EVER ALOT</code></td>
         </tr></table>
         </div><div class="cond-summary pos">All conditions met → field should map</div></td>
         <td><code>EVER ALOT</code></td>
@@ -1905,7 +1905,7 @@
           <td>✅</td>
           <td class="cond-key">resources[milestoneVessel].LABEL</td>
           <td class="cond-required">required: <code>present</code></td>
-          <td class="cond-sent">sent: <code>9839284</code></td>
+          <td class="cond-sent">sent: <code>EVER ALOT</code></td>
         </tr></table>
         </div><div class="cond-summary pos">All conditions met → field should map</div></td>
         <td><code>EVER ALOT</code></td>
@@ -2107,7 +2107,7 @@
           <td>✅</td>
           <td class="cond-key">resources[milestoneVessel].LABEL</td>
           <td class="cond-required">required: <code>present</code></td>
-          <td class="cond-sent">sent: <code>9776418</code></td>
+          <td class="cond-sent">sent: <code>CMA CGM LOUIS BLERIOT</code></td>
         </tr></table>
         </div><div class="cond-summary pos">All conditions met → field should map</div></td>
         <td><code>CMA CGM LOUIS BLERIOT</code></td>
@@ -2399,13 +2399,13 @@
         </tr><tr class="blocked">
           <td>🚫</td>
           <td><span class="blocked-label">BLOCKED</span><br><code class="field-name">trackingArrivingVesselImo</code></td>
-          <td class="cond-cell"><div class="cond-summary blocked">Not sent because: Conditions not met</div></td>
+          <td class="cond-cell"><div class="cond-summary blocked">Not sent because: sent vessel IMO: <b>9312280</b>, Name: <b>MAERSK ESSEN</b> — backend does not map vessel — carrier-specific rule</div></td>
           <td><code>9312280</code></td>
           <td></td>
         </tr><tr class="blocked">
           <td>🚫</td>
           <td><span class="blocked-label">BLOCKED</span><br><code class="field-name">trackingArrivingVesselVesselName</code></td>
-          <td class="cond-cell"><div class="cond-summary blocked">Not sent because: Conditions not met</div></td>
+          <td class="cond-cell"><div class="cond-summary blocked">Not sent because: sent vessel IMO: <b>9312280</b>, Name: <b>MAERSK ESSEN</b> — backend does not map vessel — carrier-specific rule</div></td>
           <td><code>MAERSK ESSEN</code></td>
           <td></td>
         </tr><tr class="pass">
@@ -2646,7 +2646,7 @@
           <td>✅</td>
           <td class="cond-key">resources[milestoneVessel].LABEL</td>
           <td class="cond-required">required: <code>present</code></td>
-          <td class="cond-sent">sent: <code>9839284</code></td>
+          <td class="cond-sent">sent: <code>EVER ALOT</code></td>
         </tr></table>
         </div><div class="cond-summary pos">All conditions met → field should map</div></td>
         <td><code>EVER ALOT</code></td>
@@ -2787,7 +2787,7 @@
           <td>✅</td>
           <td class="cond-key">resources[milestoneVessel].LABEL</td>
           <td class="cond-required">required: <code>present</code></td>
-          <td class="cond-sent">sent: <code>9525243</code></td>
+          <td class="cond-sent">sent: <code>MAERSK STOCKHOLM</code></td>
         </tr></table>
         </div><div class="cond-summary pos">All conditions met → field should map</div></td>
         <td><code>MAERSK STOCKHOLM</code></td>
@@ -2933,7 +2933,7 @@
           <td>✅</td>
           <td class="cond-key">resources[milestoneVessel].LABEL</td>
           <td class="cond-required">required: <code>present</code></td>
-          <td class="cond-sent">sent: <code>9776418</code></td>
+          <td class="cond-sent">sent: <code>CMA CGM LOUIS BLERIOT</code></td>
         </tr></table>
         </div><div class="cond-summary pos">All conditions met → field should map</div></td>
         <td><code>CMA CGM LOUIS BLERIOT</code></td>

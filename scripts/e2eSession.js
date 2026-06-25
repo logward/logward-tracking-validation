@@ -788,7 +788,8 @@ function buildAssertions(opts, otu, { date, site, vessel, polSite, podSite, otuB
     } else if (m.source === 'situation.transport_mode') {
       conditions.push({ key: 'situation.transport_mode', required: 'present', sent: 'ocean', match: true });
     } else if (m.source.includes('milestoneVessel')) {
-      conditions.push({ key: m.source, required: 'present', sent: vessel ? vessel.imo : 'null', match: !!vessel });
+      const sentVesselVal = vessel ? (m.source.includes('LABEL') ? vessel.name : vessel.imo) : 'null';
+      conditions.push({ key: m.source, required: 'present', sent: sentVesselVal, match: !!vessel });
     } else if (m.source === 'loading_site.unlocode') {
       conditions.push({ key: 'loading_site.unlocode', required: 'present', sent: polSite?.unlocode ?? 'null', match: !!polSite?.unlocode });
     } else if (m.source === 'delivery_site.unlocode') {
@@ -816,7 +817,7 @@ function buildAssertions(opts, otu, { date, site, vessel, polSite, podSite, otuB
   };
 
   // ── Negative helper: field must NOT have changed ───────────────────────────
-  const checkNotChanged = (field) => {
+  const checkNotChanged = (field, opts = {}) => {
     const before = otuBefore?.[field] ?? null;
     const after  = otu?.[field] ?? null;
     const pass   = before === after;
@@ -824,9 +825,11 @@ function buildAssertions(opts, otu, { date, site, vessel, polSite, podSite, otuB
     const sentConditions = buildSentConditions(field, true);
     // Find which condition caused the block
     const mismatch = sentConditions.find(c => !c.match);
-    const blockReason = mismatch
-      ? `${mismatch.key} sent="${mismatch.sent}" but required="${mismatch.required}"`
-      : `conditions not met`;
+    const blockReason = opts.forcedReason
+      ? opts.forcedReason
+      : mismatch
+        ? `${mismatch.key} sent="${mismatch.sent}" but required="${mismatch.required}"`
+        : `conditions not met`;
     assertions.push({
       field,
       expected: `unchanged (was: ${before ?? 'null'})`,
@@ -837,6 +840,8 @@ function buildAssertions(opts, otu, { date, site, vessel, polSite, podSite, otuB
       source,
       sentConditions,
       negativeReason: `Blocked — ${blockReason}`,
+      forcedReason:   opts.forcedReason  ?? null,
+      sentVessel:     opts.sentVessel    ?? null,
     });
   };
 
@@ -905,7 +910,10 @@ function buildAssertions(opts, otu, { date, site, vessel, polSite, podSite, otuB
         checkExact(field, exp);
       }
     } else {
-      checkNotChanged(field);
+      const forceOpts = (tshgEtaExternalBlock && trackingVesselFields.includes(field) && vessel)
+        ? { forcedReason: 'TSHG + eta_event + DS=external — backend does not map vessel — carrier-specific rule', sentVessel: { imo: vessel.imo, name: vessel.name } }
+        : {};
+      checkNotChanged(field, forceOpts);
     }
     // Mark the last pushed assertion as silent if it belongs to a different event
     if (!relevant && assertions.length) {
@@ -969,7 +977,7 @@ function buildAssertions(opts, otu, { date, site, vessel, polSite, podSite, otuB
         const imoActual = otu?.[`leg${VS}VesselImoNumber`] ?? null;
         const nameActual = otu?.[`leg${VS}VesselName`] ?? null;
         assertions.push({ field: `leg${VS}VesselImoNumber`, expected: vessel.imo, actual: imoActual, pass: imoActual === vessel.imo, condition: `place_type=transhipment + ${isIncr ? 'INCREMENT' : 'NON-INCREMENT'} event + milestoneVessel.IMO present`, source: 'resources[milestoneVessel].IMO', sentConditions: tspVesselConditions });
-        assertions.push({ field: `leg${VS}VesselName`,      expected: vessel.name, actual: nameActual, pass: nameActual === vessel.name, condition: `place_type=transhipment + ${isIncr ? 'INCREMENT' : 'NON-INCREMENT'} event + milestoneVessel.LABEL present`, source: 'resources[milestoneVessel].LABEL', sentConditions: [...tspVesselConditions.slice(0,2), { key: 'resources[milestoneVessel].LABEL', required: 'present', sent: vessel?.imo ?? 'null', match: !!vessel }] });
+        assertions.push({ field: `leg${VS}VesselName`,      expected: vessel.name, actual: nameActual, pass: nameActual === vessel.name, condition: `place_type=transhipment + ${isIncr ? 'INCREMENT' : 'NON-INCREMENT'} event + milestoneVessel.LABEL present`, source: 'resources[milestoneVessel].LABEL', sentConditions: [...tspVesselConditions.slice(0,2), { key: 'resources[milestoneVessel].LABEL', required: 'present', sent: vessel?.name ?? 'null', match: !!vessel }] });
       }
       // else: negative date-field test — vessel assertion skipped
     }
@@ -1472,10 +1480,17 @@ function generateReport() {
 
       // ── Blocked correctly (negativeCheck + pass) — compact row ──────────
       if (a.negativeCheck && a.pass) {
-        const mismatch = a.sentConditions?.find(c => !c.match);
-        const reason = mismatch
-          ? `sent <code>${mismatch.key}</code> = <b>"${mismatch.sent}"</b> but required <b>"${mismatch.required}"</b>`
-          : 'Conditions not met';
+        let reason;
+        if (a.forcedReason && a.sentVessel) {
+          reason = `sent vessel IMO: <b>${a.sentVessel.imo}</b>, Name: <b>${a.sentVessel.name}</b> — backend gap: <i>${a.forcedReason}</i>`;
+        } else if (a.forcedReason) {
+          reason = `<i>${a.forcedReason}</i>`;
+        } else {
+          const mismatch = a.sentConditions?.find(c => !c.match);
+          reason = mismatch
+            ? `sent <code>${mismatch.key}</code> = <b>"${mismatch.sent}"</b> but required <b>"${mismatch.required}"</b>`
+            : 'Conditions not met';
+        }
         return `<tr class="blocked">
           <td>🚫</td>
           <td><span class="blocked-label">BLOCKED</span><br><code class="field-name">${a.field}</code></td>
@@ -1645,13 +1660,14 @@ function generateReport() {
     .badge.pass{background:#c6f6d5;color:#22543d;} .badge.fail{background:#fed7d7;color:#9b2335;}
     .assertions{width:100%;border-collapse:collapse;table-layout:fixed;}
     .assertions thead tr{background:#f7fafc;}
-    .assertions th{padding:6px 14px;text-align:left;font-size:.7rem;text-transform:uppercase;color:#a0aec0;border-bottom:1px solid #e2e8f0;overflow:hidden;}
-    .assertions th:nth-child(1){width:3%;}
+    .assertions th{padding:6px 14px;text-align:left;font-size:.7rem;text-transform:uppercase;color:#a0aec0;border-bottom:1px solid #e2e8f0;}
+    .assertions th:nth-child(1){width:38px;}
     .assertions th:nth-child(2){width:22%;}
-    .assertions th:nth-child(3){width:42%;}
+    .assertions th:nth-child(3){width:44%;}
     .assertions th:nth-child(4){width:18%;}
-    .assertions th:nth-child(5){width:15%;}
+    .assertions th:nth-child(5){width:13%;}
     .assertions td{padding:7px 14px;border-bottom:1px solid #f7fafc;font-size:.78rem;word-break:break-word;overflow-wrap:anywhere;vertical-align:top;}
+    .assertions td:first-child{text-align:center;padding:7px 4px;width:38px;}
     .assertions tr.pass td{} .assertions tr.fail td{background:#fff5f5;}
     .assertions .field-name{font-family:monospace;font-weight:700;color:#2b6cb0;font-size:.82rem;}
     .pos-label{display:inline-block;background:#c6f6d5;color:#22543d;padding:1px 6px;border-radius:3px;font-size:.7rem;font-weight:700;}
@@ -1665,15 +1681,15 @@ function generateReport() {
     .flow-legacy{background:#e9d8fd;color:#553c9a;padding:2px 8px;border-radius:10px;font-size:.72rem;font-weight:700;}
     .legacy-pass{background:#c6f6d5;color:#22543d;padding:10px 16px;font-weight:700;font-size:.85rem;}
     .legacy-fail{background:#fed7d7;color:#9b2335;padding:10px 16px;font-weight:700;font-size:.85rem;margin-top:4px;border-radius:4px;}
-    .cond-cell{max-width:400px;vertical-align:top;overflow:hidden;}
-    .cond-block{background:#f7fafc;border:1px solid #e2e8f0;border-radius:4px;padding:6px 8px;margin-bottom:4px;overflow:hidden;}
+    .cond-cell{vertical-align:top;overflow:visible;}
+    .cond-block{background:#f7fafc;border:1px solid #e2e8f0;border-radius:4px;padding:6px 8px;margin-bottom:4px;overflow:visible;}
     .cond-title{font-size:.7rem;font-weight:700;color:#4a5568;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;}
     .cond-table{width:100%;border-collapse:collapse;font-size:.72rem;table-layout:fixed;}
-    .cond-table td{padding:2px 4px;vertical-align:top;word-break:break-word;overflow-wrap:anywhere;}
+    .cond-table td{padding:2px 6px;vertical-align:top;word-break:break-word;overflow-wrap:anywhere;}
     .cond-row.cond-fail td{background:#fff5f5;}
-    .cond-key{font-family:monospace;color:#2d3748;font-weight:600;white-space:nowrap;width:36%;}
-    .cond-required{color:#718096;width:34%;}
-    .cond-sent{color:#2d3748;width:30%;}
+    .cond-key{font-family:monospace;color:#2d3748;font-weight:600;word-break:break-word;overflow-wrap:anywhere;width:38%;}
+    .cond-required{color:#718096;width:33%;word-break:break-word;}
+    .cond-sent{color:#2d3748;width:29%;word-break:break-word;}
     .cond-summary{font-size:.72rem;padding:3px 6px;border-radius:3px;margin-top:3px;font-weight:600;}
     .cond-summary.pos{background:#c6f6d5;color:#22543d;}
     .cond-summary.neg{background:#fed7d7;color:#9b2335;}
