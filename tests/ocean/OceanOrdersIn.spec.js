@@ -306,14 +306,19 @@ async function sendWebhookEvent(cn, bn, bl, event, date, situationType, dataSour
 
 async function pollOtuChanged(objectCode, baseline, timeoutMs = 30000) {
   const deadline = Date.now() + timeoutMs;
-  let otu = null;
   while (Date.now() < deadline) {
     await new Promise(r => setTimeout(r, 3000));
     const raw = await getOceanTrackingObject(objectCode).catch(() => null);
-    otu = Array.isArray(raw) ? raw[0] : raw;
-    if (otu?.lastChangedAt !== baseline) break;
+    const otu = Array.isArray(raw) ? raw[0] : raw;
+    if (otu?.lastChangedAt !== baseline) {
+      // Settle: wait for all field writes to complete before returning snapshot
+      await new Promise(r => setTimeout(r, 5000));
+      const settled = await getOceanTrackingObject(objectCode).catch(() => null);
+      return Array.isArray(settled) ? settled[0] : settled;
+    }
   }
-  return otu;
+  const raw = await getOceanTrackingObject(objectCode).catch(() => null);
+  return Array.isArray(raw) ? raw[0] : raw;
 }
 
 async function sendFourEvents(objectCode, containerNumber, bookingNumber, blNumber) {

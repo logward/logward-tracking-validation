@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  helpers/shared/trackingSchedulerClient.js
 //
-//  Verifies Auto Tracking Conditions (ATC) for a TransportUnitOcean.
+//  Verifies Auto Tracking Conditions (ATC) for a TUContainer.
 //
 //  Strategy (two-tier):
 //    1. Try the internal Scheduler API first (works when OTU created via admin API)

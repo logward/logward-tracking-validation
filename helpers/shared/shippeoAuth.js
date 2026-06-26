@@ -30,7 +30,7 @@ let _cachedAccessToken  = null;
 let _accessExpMs        = 0;
 let _cachedRefreshToken = null;
 
-const TOKEN_URL  = 'https://auth.shippeo.com/auth/main/oauth/token';
+const TOKEN_URL = 'https://auth.shippeo.com/auth/main/oauth/token';
 const CLIENT_ID  = '4571962d-46de-4590-b196-2d46deb59066';
 const SCOPE      = 'openid roles profile offline_access full_profile termsOfUse:1.0';
 const CACHE_FILE = path.resolve(__dirname, '../../.shippeo-token-cache.json');
@@ -121,6 +121,40 @@ function postForm(body) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+function fetchTokenFromCredentials(username, password, baseUrl) {
+  return new Promise((resolve, reject) => {
+    const credentials = Buffer.from(`${username}:${password}`).toString('base64');
+    const url = new URL(`${baseUrl}/api/tokens`);
+    const req = https.request({
+      hostname: url.hostname,
+      path:     url.pathname,
+      method:   'POST',
+      headers:  {
+        'Authorization': `Basic ${credentials}`,
+      },
+    }, (res) => {
+      let raw = '';
+      res.on('data', c => { raw += c; });
+      res.on('end', () => {
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          reject(new Error(`HTTP ${res.statusCode}: ${raw.slice(0, 300)}`));
+          return;
+        }
+        try {
+          const body  = JSON.parse(raw);
+          const token = body?.data?.token;
+          if (!token) reject(new Error(`No token in response: ${raw.slice(0, 200)}`));
+          else        resolve(token);
+        } catch { reject(new Error(`Non-JSON: ${raw.slice(0, 200)}`)); }
+      });
+    });
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
  * Returns a valid Shippeo access token, auto-refreshing as needed.
  */
@@ -134,7 +168,26 @@ async function getShippeoToken() {
     return _cachedAccessToken;
   }
 
-  // ── 2. Try static access_token from config ────────────────────────────────
+  // ── 2. Try credentials-based API (SHIPPEO_USERNAME + SHIPPEO_PASSWORD) ─────
+  const username = shippeo.Username || shippeo.username;
+  const password = shippeo.Password || shippeo.password;
+  if (username && password && !username.startsWith('<') && !password.startsWith('<')) {
+    try {
+      console.log(`\n  [shippeoAuth] Fetching token via credentials API...`);
+      const token = await fetchTokenFromCredentials(username, password, shippeo.authBaseUrl);
+      _cachedAccessToken = token;
+      const exp    = tokenExpiresAt(token);
+      _accessExpMs = exp || (Date.now() + 55 * 60 * 1000);
+      console.log(`  [shippeoAuth] ✅ Token obtained via credentials`);
+      console.log(`  [shippeoAuth] Token: ${token}`);
+      if (exp) console.log(`  [shippeoAuth] Token expires: ${formatExpiry(exp)}`);
+      return _cachedAccessToken;
+    } catch (e) {
+      console.warn(`  [shippeoAuth] Credentials fetch failed: ${e.message} — falling back to refresh token`);
+    }
+  }
+
+  // ── 3. Try static access_token from config ────────────────────────────────
   if (!_cachedAccessToken && shippeo.token && shippeo.token !== '' && !shippeo.token.startsWith('<')) {
     const exp = tokenExpiresAt(shippeo.token);
     if (exp - Date.now() > BUFFER_MS) {
@@ -145,20 +198,20 @@ async function getShippeoToken() {
     }
   }
 
-  // ── 3. Try refresh token — disk cache first (freshest), then config ───────
+  // ── 4. Try refresh token — disk cache first (freshest), then config ─────────
   const refreshToken = _cachedRefreshToken || loadCachedRefreshToken() ||
     (shippeo.refreshToken && !shippeo.refreshToken.startsWith('<') && shippeo.refreshToken !== ''
       ? shippeo.refreshToken : null);
 
   if (!refreshToken) {
     throw new Error(
-      '\n  ╔══ Shippeo token needed ══════════════════════════════════════╗\n' +
-      '  ║  No valid token found. Run this once to seed the chain:      ║\n' +
+      '\n  ╔══ Shippeo token needed ═══════════════════════════════════════╗\n' +
+      '  ║  No valid token found. Set in .env:                          ║\n' +
       '  ║                                                              ║\n' +
-      '  ║    node helpers/shared/seedShippeoToken.js                      ║\n' +
+      '  ║    SHIPPEO_USERNAME=your.email@shippeo.com                   ║\n' +
+      '  ║    SHIPPEO_PASSWORD=your-password                            ║\n' +
       '  ║                                                              ║\n' +
-      '  ║  A browser window opens → log in → tokens saved to cache.   ║\n' +
-      '  ║  After that, auto-refresh handles everything automatically.  ║\n' +
+      '  ║  Or seed manually:  node helpers/e2e/seedShippeoToken.js     ║\n' +
       '  ╚══════════════════════════════════════════════════════════════╝\n'
     );
   }
@@ -167,7 +220,7 @@ async function getShippeoToken() {
   if (refreshExp && Date.now() > refreshExp) {
     throw new Error(
       `Shippeo refresh_token expired at ${new Date(refreshExp).toISOString()}.\n` +
-      `  Run:  node helpers/shared/seedShippeoToken.js  to re-seed the token chain.`
+      `  Set SHIPPEO_USERNAME + SHIPPEO_PASSWORD in .env, or re-run: node helpers/shared/seedShippeoToken.js`
     );
   }
 
@@ -210,4 +263,4 @@ async function isShippeoAvailable() {
   catch { return false; }
 }
 
-module.exports = { getShippeoToken, isShippeoAvailable };
+module.exports = { getShippeoToken, isShippeoAvailable, fetchTokenFromCredentials };

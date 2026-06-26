@@ -4,7 +4,7 @@
 //  Audit History helpers for Events-Out verification.
 //
 //  Confirmed endpoint (from network tab):
-//    GET /api/tower/audit/{objectCode}?schemaType=TransportUnitOcean&isAdmin=true&p=0&s=100
+//    GET /api/tower/audit/{objectCode}?schemaType=TUContainer&isAdmin=true&p=0&s=100
 //    Authorization: Bearer {admin_token}
 //
 //  Response: { data: [ { event, placeType, milestone, createdAt, ... }, ... ] }
@@ -25,7 +25,7 @@ const adminHeaders = () => ({
  * objectCode is in the URL path — not a query param.
  *
  * @param objectCode  Logward internal object code
- * @param schemaType  e.g. 'TransportUnitOcean' (default)
+ * @param schemaType  e.g. 'TUContainer' (default)
  * @returns Array of audit entries (empty array on error/no entries)
  */
 async function getAuditHistory(objectCode, schemaType = E2E_CONFIG.OCEAN.SCHEMA_TYPE) {

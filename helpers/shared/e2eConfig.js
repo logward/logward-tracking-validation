@@ -68,8 +68,8 @@ const ENVIRONMENTS = {
     trackingUrl:     'https://qa.logward.engineering',
     webhookUrl:      'https://qa.logward.engineering',
     webhookPath:     '/api/integration-hub/tracking/shippeo/ocean_order_event_out',
-    webhookClientId: 'Vbc1r8621FLbtFFl2E',
-    accountId:       'Vbc1r8621FLbtFFl2E',
+    webhookClientId: 'wCQU29iqXuWMYkTcU6',
+    accountId:       'wCQU29iqXuWMYkTcU6',
   },
   sandbox: {
     label:           'Sandbox',
@@ -131,7 +131,8 @@ const E2E_CONFIG = {
   // shippeoAuth.js priority: memory cache → disk cache → headless browser login
   // Headless login fires once per day (~3 sec), then auto-refreshes every 15 min.
   SHIPPEO: {
-    baseUrl:        process.env.SHIPPEO_API_BASE_URL || 'https://api.shippeo.com',
+    baseUrl:        process.env.SHIPPEO_API_BASE_URL  || 'https://api.shippeo.com',
+    authBaseUrl:    process.env.SHIPPEO_AUTH_BASE_URL || 'https://sf.core.qa.shippeo.com',
     clientId:       process.env.SHIPPEO_CLIENT_ID      || '<paste Shippeo client ID here>',
 
     // ── Credentials — set once, works forever via headless browser login ──────
@@ -150,8 +151,8 @@ const E2E_CONFIG = {
   // Override any value via environment variable if needed
   OCEAN: {
     SCHEMA_TYPE:   'TUContainer',
-    UPSERT_PATH:   `/api/tower/data/TUContainer/upsert`,
-    GET_PATH:      `/api/tower/data/TUContainer`,
+    UPSERT_PATH:   '/api/tower/data/TUContainer/upsert',
+    GET_PATH:      '/api/tower/data/TUContainer',
     CREATE_NEW:    true,
 
     // Last 4 digits of timestamp make these unique per run — avoids routing to stale OTUs
