@@ -56,22 +56,22 @@
 
 const { test, expect, request } = require('@playwright/test');
 
-const { E2E_CONFIG }                             = require('../../helpers/e2e/e2eConfig');
+const { E2E_CONFIG }                             = require('../../helpers/shared/e2eConfig');
 const { createOceanTrackingObject,
-        getOceanTrackingObject }                 = require('../../helpers/e2e/trackingObjectFactory');
+        getOceanTrackingObject }                 = require('../../helpers/shared/trackingObjectFactory');
 const { pollUntilSchedulerActive,
-        getTrackingSchedule }                    = require('../../helpers/e2e/trackingSchedulerClient');
+        getTrackingSchedule }                    = require('../../helpers/shared/trackingSchedulerClient');
 const { pollUntilTrackingDocCreated,
         fetchTrackingDocuments,
-        extractSuccessDocuments }                = require('../../helpers/e2e/trackingServiceClient');
+        extractSuccessDocuments }                = require('../../helpers/shared/trackingServiceClient');
 const { buildOceanReference,
         pollUntilShippeoShipmentFound,
         searchShippeoShipment,
         getShippeoOrderDetails,
-        assertShippeoOrderDetails }              = require('../../helpers/e2e/shippeoApiClient');
+        assertShippeoOrderDetails }              = require('../../helpers/shared/shippeoApiClient');
 const { assertField }                            = require('../../helpers/air/airValidation');
-const { getAdminToken }                          = require('../../helpers/e2e/cognitoAuth');
-const R                                          = require('../../helpers/e2e/ordersInFlowReporter');
+const { getAdminToken }                          = require('../../helpers/shared/cognitoAuth');
+const R                                          = require('../../helpers/shared/ordersInFlowReporter');
 const {
   makePayload, toEventSite,
   PRE_DATES, POL_DATES, POD_DATES, DEL_DATES,

@@ -3,7 +3,7 @@
 //
 //  Ocean tracking config — single source of truth for all ocean tests.
 //
-//  Tokens and URLs are pulled from E2E_CONFIG (helpers/e2e/e2eConfig.js).
+//  Tokens and URLs are pulled from E2E_CONFIG (helpers/shared/e2eConfig.js).
 //  To switch environment or refresh tokens, update e2eConfig.js only.
 //
 //  OBJECT_CODE and CONTAINER_NUMBER are set at runtime:

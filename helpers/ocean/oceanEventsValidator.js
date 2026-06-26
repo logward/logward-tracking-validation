@@ -2,7 +2,7 @@
 //  helpers/ocean/oceanEventsValidator.js
 //
 //  Shared mapping assertion helper for Ocean Events-Out tests.
-//  Used by OceanOrdersIn.spec.js and E2E_Ocean.spec.js.
+//  Used by OceanOrdersIn.spec.js and OceanEventsOut.spec.js.
 //
 //  Core idea:
 //    - Pick RANDOM locations from a pool each run (not hardcoded)
