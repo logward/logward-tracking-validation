@@ -16,8 +16,11 @@
 //  BLOCK T3 — Type 3 starts-with events  (6 events, 1 webhook each)
 //  BLOCK T4 — Type 4 hub slot events     (10 hub events: 4 random hubs × arrived/left + 2 OR aliases)
 //  BLOCK T5 — Type 5 routing events      (3 events × loading/delivery/hub per hub)
-//  BLOCK N  — Negative / Auth            (N-01 to N-04)
-//  BLOCK S  — Final ATU field state summary
+//  BLOCK N    — Negative / Auth            (N-01 to N-05)
+//  BLOCK NULL — Null field handling       (NULL-01 to NULL-04)
+//  BLOCK EDGE — Edge cases               (EDGE-01 to EDGE-06)
+//  BLOCK AON  — Always-on field checks   (AON-01 to AON-04)
+//  BLOCK S    — Final ATU field state summary
 //
 // ─── HOW TO RUN ───────────────────────────────────────────────────────────────
 //
@@ -56,7 +59,7 @@ const { E2E_CONFIG }                      = require('../../helpers/shared/e2eCon
 const {
   makePayload,
   runDate,
-  SITE, toEventSite,
+  SITE, toEventSite, toPartialEventSite,
   T2_DATES, T3_DATES, T4_DATES, T5_DATES,
 } = require('../../helpers/air/airPayloadFactory');
 const { pickHubs } = require('../../helpers/air/airSites');
@@ -207,6 +210,69 @@ function assertNotChanged(before, after, field) {
   const av = after?.[field]  ?? null;
   console.log(`  [neg] ${field}: before="${bv}" after="${av}"`);
   expect(av, `"${field}" should NOT have changed`).toBe(bv);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  createFreshATU / sendFreshAndWait
+//  Used by BLOCK NULL, BLOCK EDGE, and BLOCK AON for isolated test scenarios.
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function createFreshATU(loadingSiteIata = 'BLR', deliverySiteIata = 'BOM', loadingSiteCountry = 'IN', deliverySiteCountry = 'IN') {
+  const result = await createAirTrackingObject({
+    mot:                    'AIR',
+    trackingStatus:         'In Progress',
+    masterAirWaybillNumber: undefined,
+    loadingSiteIata,
+    deliverySiteIata,
+    loadingSiteCountry,
+    deliverySiteCountry,
+  });
+  return { code: result.code, mawb: result.mawb, clientRef: result.clientReference };
+}
+
+async function sendFreshAndWait(xState, event, date, eventSite, extras = {}) {
+  const adminCtx   = await request.newContext({ baseURL: CONFIG.ADMIN_BASE_URL });
+  const webhookCtx = await request.newContext({ baseURL: CONFIG.WEBHOOK_BASE_URL });
+
+  const getX = async () => {
+    const res  = await adminCtx.get(`${CONFIG.GET_PATH}/${xState.code}`, { headers: await adminHeaders() });
+    if (!res.ok()) return null;
+    const body = await res.json();
+    return body.data ?? body;
+  };
+
+  const before   = await getX();
+  const baseline = before?.lastChangedAt ?? null;
+
+  const payload = makePayload(event, date, eventSite, extras);
+  payload.order = {
+    ...payload.order,
+    edi_reference:    xState.mawb,
+    reference:        xState.mawb,
+    url:              'https://view.shippeo.com/orderPublic/test',
+    client_reference: xState.clientRef,
+  };
+
+  const res    = await webhookCtx.post(CONFIG.WEBHOOK_PATH, { headers: webhookHeaders(), data: payload });
+  const status = res.status();
+  console.log(`  [fresh] HTTP ${status} | event="${event}"`);
+
+  await new Promise(r => setTimeout(r, 1500));
+  const deadline = Date.now() + 45000;
+  let atu = null;
+  while (Date.now() < deadline) {
+    atu = await getX();
+    if (atu?.lastChangedAt !== baseline) {
+      await new Promise(r => setTimeout(r, 4000));
+      atu = await getX();
+      break;
+    }
+    await new Promise(r => setTimeout(r, 3000));
+  }
+
+  await adminCtx.dispose();
+  await webhookCtx.dispose();
+  return { status, atu };
 }
 
 // =============================================================================
@@ -766,6 +832,490 @@ test.describe.serial('AIR — Full Lifecycle (Orders-In + Events-Out)', () => {
     });
 
   }); // end BLOCK N
+
+  // ===========================================================================
+  //  BLOCK NULL — NULL FIELD HANDLING
+  //
+  //  Verifies correct BE behaviour when situation.date or hub site fields are null.
+  //  Each test creates a fresh ATU to avoid contamination from prior events.
+  // ===========================================================================
+
+  test.describe('BLOCK NULL | Null Field Handling', () => {
+
+    // ── NULL-01: null situation.date → event-specific date not stored, always-on still written
+    test.describe('NULL-01 | null situation.date → event date not written · always-on still fires', () => {
+      let xState = { code: null, mawb: null, clientRef: null };
+      let atu    = null;
+
+      test.beforeAll(async () => {
+        xState = await createFreshATU();
+        expect(xState.code, '[NULL-01] ATU creation failed').toBeTruthy();
+        const r = await sendFreshAndWait(xState, 'goods_arrived_at_loading_arrived', null, toEventSite(SITE.BLR));
+        atu = r.atu;
+      });
+      test.beforeEach(() => { if (!atu) test.skip(); });
+
+      test('NULL-01 | loadingArrivedDate = null (null date not stored)', () =>
+        assertField(atu, 'loadingArrivedDate', null));
+      test('NULL-01 | situationEvent = "goods_arrived_at_loading_arrived" (always-on written)', () =>
+        assertField(atu, 'situationEvent', 'goods_arrived_at_loading_arrived'));
+      test('NULL-01 | situationDate = null (always-on written even if null)', () =>
+        assertField(atu, 'situationDate', null));
+    });
+
+    // ── NULL-02: null date on hub arrived → hub site fields still written, date null
+    test.describe('NULL-02 | null situation.date on hub arrived · site fields still written', () => {
+      let xState = { code: null, mawb: null, clientRef: null };
+      let atu    = null;
+      const HUB1 = HUBS[0];
+
+      test.beforeAll(async () => {
+        xState = await createFreshATU();
+        expect(xState.code, '[NULL-02] ATU creation failed').toBeTruthy();
+        const r = await sendFreshAndWait(xState, 'goods_arrived_at_hub_arrived', null, toEventSite(HUB1));
+        atu = r.atu;
+      });
+      test.beforeEach(() => { if (!atu) test.skip(); });
+
+      test('NULL-02 | hubArrivedDate_stop1 = null (null date not stored)', () => {
+        const slot = atu ? resolveHubSlot(atu, HUB1.iata_code, HUB1.country) : 1;
+        assertField(atu, `hubArrivedDate_stop${slot}`, null);
+      });
+      test('NULL-02 | hubSiteIata written despite null date', () => {
+        const slot = atu ? resolveHubSlot(atu, HUB1.iata_code, HUB1.country) : 1;
+        assertField(atu, `hubSiteIata_stop${slot}`, HUB1.iata_code);
+      });
+      test('NULL-02 | hubSiteCountry written despite null date', () => {
+        const slot = atu ? resolveHubSlot(atu, HUB1.iata_code, HUB1.country) : 1;
+        assertField(atu, `hubSiteCountry_stop${slot}`, HUB1.country);
+      });
+      test('NULL-02 | hubSiteCity written despite null date', () => {
+        const slot = atu ? resolveHubSlot(atu, HUB1.iata_code, HUB1.country) : 1;
+        assertField(atu, `hubSiteCity_stop${slot}`, HUB1.city);
+      });
+    });
+
+    // ── NULL-03: null hub site city/desc/address/zip → those fields not stored, date + iata + country written
+    test.describe('NULL-03 | null hub site city/desc/addr/zip → not stored · date + iata + country written', () => {
+      let xState    = { code: null, mawb: null, clientRef: null };
+      let atu       = null;
+      const HUB1     = HUBS[0];
+      const N03_DATE = runDate(113000);
+
+      test.beforeAll(async () => {
+        xState = await createFreshATU();
+        expect(xState.code, '[NULL-03] ATU creation failed').toBeTruthy();
+        // toPartialEventSite: iata_code + country only; city/desc/addr/zip = null
+        const r = await sendFreshAndWait(xState, 'goods_arrived_at_hub_arrived', N03_DATE, toPartialEventSite(HUB1, {}));
+        atu = r.atu;
+      });
+      test.beforeEach(() => { if (!atu) test.skip(); });
+
+      test('NULL-03 | hubArrivedDate written (date still stored)', () => {
+        const slot = atu ? resolveHubSlot(atu, HUB1.iata_code, HUB1.country) : 1;
+        assertField(atu, `hubArrivedDate_stop${slot}`, N03_DATE);
+      });
+      test('NULL-03 | hubSiteIata written', () => {
+        const slot = atu ? resolveHubSlot(atu, HUB1.iata_code, HUB1.country) : 1;
+        assertField(atu, `hubSiteIata_stop${slot}`, HUB1.iata_code);
+      });
+      test('NULL-03 | hubSiteCountry written', () => {
+        const slot = atu ? resolveHubSlot(atu, HUB1.iata_code, HUB1.country) : 1;
+        assertField(atu, `hubSiteCountry_stop${slot}`, HUB1.country);
+      });
+      test('NULL-03 | hubSiteCity = null (null not stored)', () => {
+        const slot = atu ? resolveHubSlot(atu, HUB1.iata_code, HUB1.country) : 1;
+        assertField(atu, `hubSiteCity_stop${slot}`, null);
+      });
+      test('NULL-03 | hubSiteDescription = null (null not stored)', () => {
+        const slot = atu ? resolveHubSlot(atu, HUB1.iata_code, HUB1.country) : 1;
+        assertField(atu, `hubSiteDescription_stop${slot}`, null);
+      });
+      test('NULL-03 | hubSiteAddressLine = null (null not stored)', () => {
+        const slot = atu ? resolveHubSlot(atu, HUB1.iata_code, HUB1.country) : 1;
+        assertField(atu, `hubSiteAddressLine_stop${slot}`, null);
+      });
+      test('NULL-03 | hubSiteZipcode = null (null not stored)', () => {
+        const slot = atu ? resolveHubSlot(atu, HUB1.iata_code, HUB1.country) : 1;
+        assertField(atu, `hubSiteZipcode_stop${slot}`, null);
+      });
+    });
+
+    // ── NULL-04: Empty request body → HTTP 400
+    test('NULL-04 | Empty request body → HTTP 400', async () => {
+      const webhookCtx = await request.newContext({ baseURL: CONFIG.WEBHOOK_BASE_URL });
+      const res = await webhookCtx.post(CONFIG.WEBHOOK_PATH, { headers: webhookHeaders(), data: {} });
+      console.log(`  [NULL-04] HTTP ${res.status()}`);
+      expect(res.status()).toBe(400);
+      await webhookCtx.dispose();
+    });
+
+  }); // end BLOCK NULL
+
+  // ===========================================================================
+  //  BLOCK EDGE — EDGE CASES
+  //
+  //  EDGE-01/02/03 — earlier date does not overwrite (loading, delivery, hub)
+  //  EDGE-04/05    — eta_event_external routes correctly (loading, hub)
+  //  EDGE-06       — full 19-event journey, no cross-contamination
+  // ===========================================================================
+
+  test.describe('BLOCK EDGE | Edge Cases', () => {
+
+    // ── EDGE-01: loading arrived sent twice · earlier date does NOT overwrite
+    test.describe('EDGE-01 | Earlier loading arrived date does not overwrite existing', () => {
+      let atuAfter = null;
+      // Earlier than T2_DATES.goods_arrived_at_loading_arrived (runDate(7200))
+      const EARLIER = runDate(100);
+
+      test.beforeAll(async () => {
+        expect(state.code, '[EDGE-01] A-01 must pass first').toBeTruthy();
+        atuAfter = await send('goods_arrived_at_loading_arrived', EARLIER, toEventSite(SITE.BLR));
+      });
+      test.beforeEach(() => { if (!atuAfter) test.skip(); });
+
+      test('EDGE-01 | loadingArrivedDate = T2 date (earlier date does not overwrite)', () =>
+        assertField(atuAfter, 'loadingArrivedDate', T2_DATES.goods_arrived_at_loading_arrived));
+    });
+
+    // ── EDGE-02: delivery arrived sent twice · earlier date does NOT overwrite
+    test.describe('EDGE-02 | Earlier delivery arrived date does not overwrite existing', () => {
+      let atuAfter = null;
+      // Earlier than T2_DATES.goods_arrived_at_delivery_arrived (runDate(18000))
+      const EARLIER = runDate(200);
+
+      test.beforeAll(async () => {
+        expect(state.code, '[EDGE-02] A-01 must pass first').toBeTruthy();
+        atuAfter = await send('goods_arrived_at_delivery_arrived', EARLIER, toEventSite(SITE.BOM));
+      });
+      test.beforeEach(() => { if (!atuAfter) test.skip(); });
+
+      test('EDGE-02 | deliveryArrivedDate = T2 date (earlier date does not overwrite)', () =>
+        assertField(atuAfter, 'deliveryArrivedDate', T2_DATES.goods_arrived_at_delivery_arrived));
+    });
+
+    // ── EDGE-03: hub arrived twice same hub on fresh ATU · earlier date no overwrite · no new slot
+    test.describe('EDGE-03 | Hub arrived twice same hub · earlier date no overwrite · no new slot', () => {
+      let xState         = { code: null, mawb: null, clientRef: null };
+      let atuAfterSecond = null;
+      const HUB1   = HUBS[0];
+      const T2_HUB = runDate(114000);  // later — sent first
+      const T1_HUB = runDate(113500);  // earlier — sent second (T1 < T2)
+
+      test.beforeAll(async () => {
+        xState = await createFreshATU();
+        expect(xState.code, '[EDGE-03] ATU creation failed').toBeTruthy();
+        await sendFreshAndWait(xState, 'goods_arrived_at_hub_arrived', T2_HUB, toEventSite(HUB1));
+        const r2 = await sendFreshAndWait(xState, 'goods_arrived_at_hub_arrived', T1_HUB, toEventSite(HUB1));
+        atuAfterSecond = r2.atu;
+      });
+      test.beforeEach(() => { if (!atuAfterSecond) test.skip(); });
+
+      test('EDGE-03 | hubArrivedDate_stop1 = T2 (earlier date does not overwrite)', () => {
+        const slot = resolveHubSlot(atuAfterSecond, HUB1.iata_code, HUB1.country);
+        assertField(atuAfterSecond, `hubArrivedDate_stop${slot}`, T2_HUB);
+      });
+      test('EDGE-03 | hubSiteIata_stop2 = null (no new slot created)', () =>
+        assertField(atuAfterSecond, 'hubSiteIata_stop2', null));
+    });
+
+    // ── EDGE-04: eta_event_external at loading → loadingETADate, deliveryETADate null
+    test.describe('EDGE-04 | eta_event_external at loading → loadingETADate (not delivery)', () => {
+      let xState = { code: null, mawb: null, clientRef: null };
+      let atu    = null;
+      const ETA_DATE = runDate(116000);
+
+      test.beforeAll(async () => {
+        xState = await createFreshATU('BLR', 'BOM', 'IN', 'IN');
+        expect(xState.code, '[EDGE-04] ATU creation failed').toBeTruthy();
+        const r = await sendFreshAndWait(xState, 'eta_event_external', ETA_DATE, toEventSite(SITE.BLR));
+        atu = r.atu;
+      });
+      test.beforeEach(() => { if (!atu) test.skip(); });
+
+      test('EDGE-04 | loadingETADate ← situation.date (eta_event_external OR alias)', () =>
+        assertField(atu, 'loadingETADate', ETA_DATE));
+      test('EDGE-04 | deliveryETADate = null (loading event does not touch delivery)', () =>
+        assertField(atu, 'deliveryETADate', null));
+    });
+
+    // ── EDGE-05: eta_event_external at hub → hubETADate_stop1, loading + delivery null
+    test.describe('EDGE-05 | eta_event_external at hub → hubETADate_stop1 (not loading or delivery)', () => {
+      let xState = { code: null, mawb: null, clientRef: null };
+      let atu    = null;
+      const HUB1     = HUBS[0];
+      const ETA_DATE = runDate(117000);
+
+      test.beforeAll(async () => {
+        xState = await createFreshATU('BLR', 'BOM', 'IN', 'IN');
+        expect(xState.code, '[EDGE-05] ATU creation failed').toBeTruthy();
+        const r = await sendFreshAndWait(xState, 'eta_event_external', ETA_DATE, toEventSite(HUB1));
+        atu = r.atu;
+      });
+      test.beforeEach(() => { if (!atu) test.skip(); });
+
+      test('EDGE-05 | hubETADate (correct stop) ← situation.date (eta_event_external OR alias)', () => {
+        const slot = atu ? resolveHubSlot(atu, HUB1.iata_code, HUB1.country) : 1;
+        assertField(atu, `hubETADate_stop${slot}`, ETA_DATE);
+      });
+      test('EDGE-05 | loadingETADate = null (hub event does not touch loading)', () =>
+        assertField(atu, 'loadingETADate', null));
+      test('EDGE-05 | deliveryETADate = null (hub event does not touch delivery)', () =>
+        assertField(atu, 'deliveryETADate', null));
+    });
+
+    // ── EDGE-06: Full 19-event journey on one fresh ATU · no cross-contamination
+    test.describe('EDGE-06 | Full journey: 19 events in sequence · no cross-contamination', () => {
+      let xState   = { code: null, mawb: null, clientRef: null };
+      let finalATU = null;
+
+      const LOAD = SITE.BLR;
+      const DEL  = SITE.BOM;
+      const HUB1 = HUBS[0];
+      const HUB2 = HUBS[1];
+
+      const D = {
+        s01: runDate(120000),  s02: runDate(121000),  s03: runDate(122000),
+        s04: runDate(123000),  s05: runDate(124000),  s06: runDate(125000),
+        s07: runDate(126000),  s08: runDate(127000),  s09: runDate(128000),
+        s10: runDate(129000),  s11: runDate(130000),  s12: runDate(131000),
+        s13: runDate(132000),  s14: runDate(133000),  s15: runDate(134000),
+        s16: runDate(135000),  s17: runDate(136000),  s18: runDate(137000),
+        s19: runDate(138000),
+      };
+
+      test.beforeAll(async () => {
+        xState = await createFreshATU('BLR', 'BOM', 'IN', 'IN');
+        expect(xState.code, '[EDGE-06] ATU creation failed').toBeTruthy();
+        console.log(`\n[EDGE-06] code=${xState.code}  hub1=${HUB1.iata_code}  hub2=${HUB2.iata_code}`);
+
+        const steps = [
+          ['received_from_shipper',              D.s01, toEventSite(LOAD)],
+          ['goods_arrived_at_loading_arrived',   D.s02, toEventSite(LOAD)],
+          ['goods_loading_compliant_compliant',  D.s03, toEventSite(LOAD)],
+          ['goods_left_loading_left',            D.s04, toEventSite(LOAD)],
+          ['manifested',                         D.s05, toEventSite(LOAD)],
+          ['eta_event',                          D.s06, toEventSite(LOAD)],
+          ['received_from_flight',               D.s07, toEventSite(LOAD)],
+          ['goods_arrived_at_hub_arrived',       D.s08, toEventSite(HUB1)],
+          ['goods_left_hub_left',                D.s09, toEventSite(HUB1)],
+          ['manifested',                         D.s10, toEventSite(HUB1)],
+          ['goods_arrived_at_hub_arrived',       D.s11, toEventSite(HUB2)],
+          ['goods_arrived_at_delivery_arrived',  D.s12, toEventSite(DEL)],
+          ['goods_delivery_compliant_compliant', D.s13, toEventSite(DEL)],
+          ['goods_left_delivery_left',           D.s14, toEventSite(DEL)],
+          ['manifested',                         D.s15, toEventSite(DEL)],
+          ['eta_event',                          D.s16, toEventSite(DEL)],
+          ['received_from_flight',               D.s17, toEventSite(DEL)],
+          ['documentation_delivered',            D.s18, toEventSite(DEL)],
+          ['consignee_notified',                 D.s19, toEventSite(DEL)],
+        ];
+
+        for (let i = 0; i < steps.length; i++) {
+          const [event, date, site] = steps[i];
+          console.log(`  [EDGE-06] Step ${i + 1}/19: ${event}`);
+          const r = await sendFreshAndWait(xState, event, date, site);
+          if (i === steps.length - 1) finalATU = r.atu;
+        }
+      });
+      test.beforeEach(() => { if (!finalATU) test.skip(); });
+
+      // Loading
+      test('EDGE-06 | s01 receivedFromShipperDate', () =>
+        assertField(finalATU, 'receivedFromShipperDate', D.s01));
+      test('EDGE-06 | s02 loadingArrivedDate', () =>
+        assertField(finalATU, 'loadingArrivedDate', D.s02));
+      test('EDGE-06 | s03 loadingCompliantDate', () =>
+        assertField(finalATU, 'loadingCompliantDate', D.s03));
+      test('EDGE-06 | s04 loadingLeftDate', () =>
+        assertField(finalATU, 'loadingLeftDate', D.s04));
+      test('EDGE-06 | s05 loadingManifestedDate', () =>
+        assertField(finalATU, 'loadingManifestedDate', D.s05));
+      test('EDGE-06 | s06 loadingETADate', () =>
+        assertField(finalATU, 'loadingETADate', D.s06));
+      test('EDGE-06 | s07 loadingReceivedFromFlightDate', () =>
+        assertField(finalATU, 'loadingReceivedFromFlightDate', D.s07));
+
+      // Hub 1
+      test('EDGE-06 | s08 hubArrivedDate_stop1 (hub1)', () => {
+        const s = resolveHubSlot(finalATU, HUB1.iata_code, HUB1.country);
+        assertField(finalATU, `hubArrivedDate_stop${s}`, D.s08);
+      });
+      test('EDGE-06 | s08 hubSiteIata_stop1 = hub1.iata', () => {
+        const s = resolveHubSlot(finalATU, HUB1.iata_code, HUB1.country);
+        assertField(finalATU, `hubSiteIata_stop${s}`, HUB1.iata_code);
+      });
+      test('EDGE-06 | s09 hubLeftDate_stop1 (hub1)', () => {
+        const s = resolveHubSlot(finalATU, HUB1.iata_code, HUB1.country);
+        assertField(finalATU, `hubLeftDate_stop${s}`, D.s09);
+      });
+      test('EDGE-06 | s10 hubManifestedDate_stop1 (hub1)', () => {
+        const s = resolveHubSlot(finalATU, HUB1.iata_code, HUB1.country);
+        assertField(finalATU, `hubManifestedDate_stop${s}`, D.s10);
+      });
+
+      // Hub 2
+      test('EDGE-06 | s11 hubArrivedDate_stop2 (hub2)', () => {
+        const s = resolveHubSlot(finalATU, HUB2.iata_code, HUB2.country);
+        assertField(finalATU, `hubArrivedDate_stop${s}`, D.s11);
+      });
+      test('EDGE-06 | s11 hubSiteIata_stop2 = hub2.iata', () => {
+        const s = resolveHubSlot(finalATU, HUB2.iata_code, HUB2.country);
+        assertField(finalATU, `hubSiteIata_stop${s}`, HUB2.iata_code);
+      });
+
+      // Delivery
+      test('EDGE-06 | s12 deliveryArrivedDate', () =>
+        assertField(finalATU, 'deliveryArrivedDate', D.s12));
+      test('EDGE-06 | s13 deliveryCompliantDate', () =>
+        assertField(finalATU, 'deliveryCompliantDate', D.s13));
+      test('EDGE-06 | s14 deliveryLeftDate', () =>
+        assertField(finalATU, 'deliveryLeftDate', D.s14));
+      test('EDGE-06 | s15 deliveryManifestedDate', () =>
+        assertField(finalATU, 'deliveryManifestedDate', D.s15));
+      test('EDGE-06 | s16 deliveryETADate', () =>
+        assertField(finalATU, 'deliveryETADate', D.s16));
+      test('EDGE-06 | s17 deliveryReceivedFromFlightDate', () =>
+        assertField(finalATU, 'deliveryReceivedFromFlightDate', D.s17));
+      test('EDGE-06 | s18 documentationDeliveredDate', () =>
+        assertField(finalATU, 'documentationDeliveredDate', D.s18));
+      test('EDGE-06 | s19 consigneeNotifiedDate', () =>
+        assertField(finalATU, 'consigneeNotifiedDate', D.s19));
+
+      // No cross-contamination
+      test('EDGE-06 | loadingArrivedDate != deliveryArrivedDate', () => {
+        console.log(`  loading="${finalATU?.loadingArrivedDate}"  delivery="${finalATU?.deliveryArrivedDate}"`);
+        expect(finalATU?.loadingArrivedDate).not.toBe(finalATU?.deliveryArrivedDate);
+      });
+      test('EDGE-06 | hubArrivedDate_stop1 != hubArrivedDate_stop2', () => {
+        const s1 = resolveHubSlot(finalATU, HUB1.iata_code, HUB1.country);
+        const s2 = resolveHubSlot(finalATU, HUB2.iata_code, HUB2.country);
+        const h1 = finalATU?.[`hubArrivedDate_stop${s1}`];
+        const h2 = finalATU?.[`hubArrivedDate_stop${s2}`];
+        console.log(`  hub1(stop${s1})="${h1}"  hub2(stop${s2})="${h2}"`);
+        expect(h1).not.toBe(h2);
+      });
+    }); // end EDGE-06
+
+  }); // end BLOCK EDGE
+
+  // ===========================================================================
+  //  BLOCK AON — ALWAYS-ON FIELD VERIFICATION
+  //
+  //  Verifies that situationEvent, situationDate, orderReference, orderUrl, and
+  //  consignmentReference fire alongside event-specific fields for each type.
+  // ===========================================================================
+
+  test.describe('BLOCK AON | Always-On Field Verification', () => {
+
+    // ── AON-01: T2 delivery event — all six always-on fields asserted
+    test.describe('AON-01 | Always-on fields with T2 delivery event', () => {
+      let atu = null;
+      const P01_DATE = runDate(140000);
+
+      test.beforeAll(async () => {
+        expect(state.code, '[AON-01] A-01 must pass first').toBeTruthy();
+        atu = await send(
+          'goods_arrived_at_delivery_arrived',
+          P01_DATE,
+          toEventSite(SITE.BOM),
+          {
+            situation: {
+              event:              'goods_arrived_at_delivery_arrived',
+              situation_code:     null,
+              justification_code: null,
+              date:               P01_DATE,
+              input_date:         P01_DATE,
+            },
+            situation_justification: {
+              attributes: { consignmentReference: 'CSN-001' },
+            },
+          }
+        );
+      });
+      test.beforeEach(() => { if (!atu) test.skip(); });
+
+      test('AON-01 | deliveryArrivedDate ← situation.date', () =>
+        assertField(atu, 'deliveryArrivedDate', P01_DATE));
+      test('AON-01 | situationEvent = event name (always-on)', () =>
+        assertField(atu, 'situationEvent', 'goods_arrived_at_delivery_arrived'));
+      test('AON-01 | situationDate ← situation.date (always-on)', () =>
+        assertField(atu, 'situationDate', P01_DATE));
+      test('AON-01 | situationInputDate ← situation.input_date (always-on)', () =>
+        assertField(atu, 'situationInputDate', P01_DATE));
+      test('AON-01 | orderReference = MAWB (always-on)', () =>
+        assertField(atu, 'orderReference', state.mawb));
+      test('AON-01 | consignmentReference = "CSN-001" (always-on)', () =>
+        assertField(atu, 'consignmentReference', 'CSN-001'));
+      test('AON-01 | orderUrl = order.url (always-on)', () =>
+        assertField(atu, 'orderUrl', 'https://view.shippeo.com/orderPublic/test'));
+    });
+
+    // ── AON-02: T3 event — key always-on fields present
+    test.describe('AON-02 | Always-on fields with T3 (loading non-compliant)', () => {
+      let atu = null;
+      const P02_DATE = runDate(141000);
+
+      test.beforeAll(async () => {
+        expect(state.code, '[AON-02] A-01 must pass first').toBeTruthy();
+        atu = await send('goods_loading_non_compliant_damaged', P02_DATE, toEventSite(SITE.BLR));
+      });
+      test.beforeEach(() => { if (!atu) test.skip(); });
+
+      test('AON-02 | loadingNonCompliantDate ← situation.date', () =>
+        assertField(atu, 'loadingNonCompliantDate', P02_DATE));
+      test('AON-02 | situationEvent = event name (always-on)', () =>
+        assertField(atu, 'situationEvent', 'goods_loading_non_compliant_damaged'));
+      test('AON-02 | orderReference = MAWB (always-on)', () =>
+        assertField(atu, 'orderReference', state.mawb));
+    });
+
+    // ── AON-03: T4 hub arrived — key always-on fields present
+    test.describe('AON-03 | Always-on fields with T4 hub arrived', () => {
+      let atu  = null;
+      let slot = null;
+      const HUB1     = HUBS[0];
+      const P03_DATE = runDate(142000);
+
+      test.beforeAll(async () => {
+        expect(state.code, '[AON-03] A-01 must pass first').toBeTruthy();
+        atu  = await send('goods_arrived_at_hub_arrived', P03_DATE, toEventSite(HUB1));
+        slot = atu ? resolveHubSlot(atu, HUB1.iata_code, HUB1.country) : null;
+      });
+      test.beforeEach(() => { if (!atu) test.skip(); });
+
+      test('AON-03 | hubArrivedDate (correct stop) ← situation.date', () => {
+        expect(slot, 'hub slot must be assigned').not.toBeNull();
+        assertField(atu, `hubArrivedDate_stop${slot}`, P03_DATE);
+      });
+      test('AON-03 | situationEvent = event name (always-on)', () =>
+        assertField(atu, 'situationEvent', 'goods_arrived_at_hub_arrived'));
+      test('AON-03 | orderReference = MAWB (always-on)', () =>
+        assertField(atu, 'orderReference', state.mawb));
+    });
+
+    // ── AON-04: T5 manifested (loading) — key always-on fields present
+    test.describe('AON-04 | Always-on fields with T5 routing (manifested at loading)', () => {
+      let atu = null;
+      const P04_DATE = runDate(143000);
+
+      test.beforeAll(async () => {
+        expect(state.code, '[AON-04] A-01 must pass first').toBeTruthy();
+        atu = await send('manifested', P04_DATE, toEventSite(SITE.BLR));
+      });
+      test.beforeEach(() => { if (!atu) test.skip(); });
+
+      test('AON-04 | loadingManifestedDate ← situation.date', () =>
+        assertField(atu, 'loadingManifestedDate', P04_DATE));
+      test('AON-04 | situationEvent = "manifested" (always-on)', () =>
+        assertField(atu, 'situationEvent', 'manifested'));
+      test('AON-04 | orderReference = MAWB (always-on)', () =>
+        assertField(atu, 'orderReference', state.mawb));
+      test('AON-04 | situationDate ← situation.date (always-on)', () =>
+        assertField(atu, 'situationDate', P04_DATE));
+    });
+
+  }); // end BLOCK AON
 
   // ===========================================================================
   //  BLOCK S — FINAL ATU FIELD STATE SUMMARY
