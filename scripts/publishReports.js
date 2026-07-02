@@ -11,7 +11,7 @@
 
 'use strict';
 
-const { execSync } = require('child_process');
+const { execSync, execFileSync } = require('child_process');
 const fs   = require('fs');
 const path = require('path');
 
@@ -33,10 +33,13 @@ function collectReports(branch) {
       .filter(f => f.endsWith('.html'))
       .sort().reverse()
       .forEach(f => {
-        const date = f.replace('session-', '').replace('.html', '').replace('T', ' ').slice(0, 16);
+        const isRoad = f.startsWith('road-session-');
+        const raw  = f.replace('road-session-', '').replace('session-', '').replace('.html', '');
+        const date = raw.replace('T', ' ').slice(0, 16);
+        const type = isRoad ? 'Road Events-Out' : 'Ocean Events-Out';
         const filePath = `playwright-report/sessions/${f}`;
         const url = `https://htmlpreview.github.io/?https://github.com/${REPO}/blob/${branch}/${filePath}`;
-        reports.push({ type: 'Events-Out', date, url, filePath });
+        reports.push({ type, date, url, filePath });
       });
   }
 
@@ -73,7 +76,7 @@ function buildIndex(reports, branch) {
 
   const rows = reports.map(r => `
     <tr>
-      <td><span class="badge ${r.type === 'Events-Out' ? 'ev' : r.type === 'Daily Summary' ? 'ds' : 'oi'}">${r.type}</span></td>
+      <td><span class="badge ${r.type === 'Ocean Events-Out' ? 'ev' : r.type === 'Road Events-Out' ? 'rd' : r.type === 'Daily Summary' ? 'ds' : 'oi'}">${r.type}</span></td>
       <td class="date">${r.date} UTC</td>
       <td><a href="${r.url}" target="_blank">Open Report →</a></td>
     </tr>`).join('');
@@ -103,6 +106,7 @@ function buildIndex(reports, branch) {
     a:hover{text-decoration:underline;}
     .badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.7rem;font-weight:700;}
     .badge.ev{background:#c6f6d5;color:#22543d;}
+    .badge.rd{background:#FEF3C7;color:#92400E;}
     .badge.oi{background:#bee3f8;color:#2a4365;}
     .badge.ds{background:#e9d8fd;color:#44337a;}
     .date{color:#718096;font-size:.82rem;white-space:nowrap;}
@@ -145,8 +149,7 @@ function main() {
   fs.writeFileSync(indexPath, buildIndex(reports, branch));
 
   // Stage all report files + index
-  const filesToAdd = reports.map(r => `"${r.filePath}"`).join(' ');
-  execSync(`git add -f ${filesToAdd} "reports-index.html"`, { cwd: ROOT, stdio: 'inherit' });
+  execFileSync('git', ['add', '-f', ...reports.map(r => r.filePath), 'reports-index.html'], { cwd: ROOT, stdio: 'inherit' });
 
   try {
     run(`git commit -m "chore: publish ${reports.length} reports + index [${new Date().toISOString().slice(0,16)}]"`);
@@ -154,7 +157,7 @@ function main() {
     console.log('ℹ  Nothing new to commit — already up to date.');
   }
 
-  execSync(`git push origin ${branch}`, { cwd: ROOT, stdio: 'inherit' });
+  execFileSync('git', ['push', 'origin', branch], { cwd: ROOT, stdio: 'inherit' });
 
   const indexUrl = `https://htmlpreview.github.io/?https://github.com/${REPO}/blob/${branch}/reports-index.html`;
 

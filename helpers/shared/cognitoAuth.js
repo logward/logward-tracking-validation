@@ -42,8 +42,8 @@ function saveCachedToken(token, expMs) {
 const BUFFER_MS   = 120_000; // refresh 2 min before expiry
 
 // Cognito pool config — same pool the Logward frontend uses
-const USER_POOL_ID = 'eu-central-1_GIl1izT7B';
-const CLIENT_ID    = 'mhq6h7v6n2cdvj9msjooq8kh4';
+const USER_POOL_ID = process.env.COGNITO_USER_POOL_ID || 'eu-central-1_GIl1izT7B';
+const CLIENT_ID    = process.env.COGNITO_CLIENT_ID    || 'mhq6h7v6n2cdvj9msjooq8kh4';
 
 // ─────────────────────────────────────────────────────────────────────────────
 

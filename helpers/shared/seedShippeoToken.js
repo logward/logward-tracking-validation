@@ -29,8 +29,7 @@ const { E2E_CONFIG } = require('./e2eConfig');
 
   try {
     const token = await fetchTokenFromCredentials(username, password, authBaseUrl);
-    console.log('\n  ✅ Token obtained:');
-    console.log(`  ${token}`);
+    console.log('\n  ✅ Token obtained and cached — do not log the token value.');
   } catch (e) {
     console.error(`\n  ❌ Failed: ${e.message}`);
     process.exit(1);

@@ -47,6 +47,35 @@ function deriveActiveValidAir(atu) {
   return { active, valid };
 }
 
+// Road ATC rules — valid=1 requires active=1 AND all 20 required fields present
+function deriveActiveValidRoad(rtu) {
+  const active = rtu?.trackingStatus === 'In Progress' ? 1 : 0;
+  const valid = (
+    active === 1 &&
+    !!rtu?.carrierId              &&
+    !!rtu?.transportOrderId       &&
+    !!rtu?.licensePlateTruck      &&
+    !!rtu?.loadType               &&
+    !!rtu?.pickupAddressName      &&
+    !!rtu?.pickupAddressStreet    &&
+    !!rtu?.pickupAddressZipcode   &&
+    !!rtu?.pickupAddressCity      &&
+    !!rtu?.pickupAddressCountry   &&
+    !!rtu?.deliveryLocationName   &&
+    !!rtu?.deliveryLocationStreet &&
+    !!rtu?.deliveryLocationZipcode &&
+    !!rtu?.deliveryLocationCity   &&
+    !!rtu?.deliveryLocationCountry &&
+    !!rtu?.pickUpStartDate        &&
+    !!rtu?.pickUpEndDate          &&
+    !!rtu?.pickUpTimeZone         &&
+    !!rtu?.deliveryStartDate      &&
+    !!rtu?.deliveryEndDate        &&
+    !!rtu?.deliveryTimeZone
+  ) ? 1 : 0;
+  return { active, valid };
+}
+
 async function getActiveValidFromOtu(objectCode) {
   const { getOceanTrackingObject } = require('./trackingObjectFactory');
   const raw = await getOceanTrackingObject(objectCode).catch(() => null);
@@ -64,6 +93,16 @@ async function getActiveValidFromAtu(objectCode) {
   if (!atu) return null;
   const result = deriveActiveValidAir(atu);
   console.log(`  [scheduler] Derived from ATU fields: active=${result.active} valid=${result.valid}`);
+  return result;
+}
+
+async function getActiveValidFromRtu(objectCode) {
+  const { getRoadTrackingObject } = require('../road/roadTrackingObjectFactory');
+  const raw = await getRoadTrackingObject(objectCode).catch(() => null);
+  const rtu = Array.isArray(raw) ? raw[0] : raw;
+  if (!rtu) return null;
+  const result = deriveActiveValidRoad(rtu);
+  console.log(`  [scheduler] Derived from RTU fields: active=${result.active} valid=${result.valid}`);
   return result;
 }
 
@@ -102,7 +141,8 @@ async function getTrackingSchedule(schemaType, objectCode) {
 
     // Scheduler API error — fall back to object derivation
     console.log(`  [scheduler] GET HTTP ${status} — falling back to ${schemaType} derivation`);
-    if (schemaType === 'airTransportUnit') return await getActiveValidFromAtu(objectCode);
+    if (schemaType === 'airTransportUnit')  return await getActiveValidFromAtu(objectCode);
+    if (schemaType === 'TransportUnitRoad') return await getActiveValidFromRtu(objectCode);
     return await getActiveValidFromOtu(objectCode);
 
   } finally {
@@ -140,8 +180,8 @@ async function pollUntilSchedulerActive(
 
   // Real scheduler timed out — fall back to object-derived values so tests can proceed
   console.warn(`  [scheduler ⚠️] Timed out after ${timeoutMs}ms — falling back to ${schemaType} derivation`);
-  const derived = schemaType === 'airTransportUnit'
-    ? await getActiveValidFromAtu(objectCode)
+  const derived = schemaType === 'airTransportUnit'  ? await getActiveValidFromAtu(objectCode)
+    : schemaType === 'TransportUnitRoad'             ? await getActiveValidFromRtu(objectCode)
     : await getActiveValidFromOtu(objectCode);
   if (derived) {
     console.log(`  [scheduler] Derived: active=${derived.active} valid=${derived.valid}`);
@@ -149,4 +189,4 @@ async function pollUntilSchedulerActive(
   return derived;
 }
 
-module.exports = { getTrackingSchedule, pollUntilSchedulerActive, deriveActiveValidAir };
+module.exports = { getTrackingSchedule, pollUntilSchedulerActive, deriveActiveValidAir, deriveActiveValidRoad };

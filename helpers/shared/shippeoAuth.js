@@ -31,7 +31,7 @@ let _accessExpMs        = 0;
 let _cachedRefreshToken = null;
 
 const TOKEN_URL = 'https://auth.shippeo.com/auth/main/oauth/token';
-const CLIENT_ID  = '4571962d-46de-4590-b196-2d46deb59066';
+const CLIENT_ID  = process.env.SHIPPEO_CLIENT_ID || '4571962d-46de-4590-b196-2d46deb59066';
 const SCOPE      = 'openid roles profile offline_access full_profile termsOfUse:1.0';
 const CACHE_FILE = path.resolve(__dirname, '../../.shippeo-token-cache.json');
 const BUFFER_MS  = 120_000;
@@ -179,7 +179,6 @@ async function getShippeoToken() {
       const exp    = tokenExpiresAt(token);
       _accessExpMs = exp || (Date.now() + 55 * 60 * 1000);
       console.log(`  [shippeoAuth] ✅ Token obtained via credentials`);
-      console.log(`  [shippeoAuth] Token: ${token}`);
       if (exp) console.log(`  [shippeoAuth] Token expires: ${formatExpiry(exp)}`);
       return _cachedAccessToken;
     } catch (e) {

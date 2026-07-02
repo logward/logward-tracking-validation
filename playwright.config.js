@@ -75,8 +75,10 @@ module.exports = defineConfig({
     {
       name: 'road',
       testDir: './tests/road',
+      timeout: 180000,  // 3 min — road backend async processing can take 30-90s
       reporter: [
         ['html', { outputFolder: `${RUN_DIR}/road`, open: 'never' }],
+        ['./helpers/road/roadEventsOutReporter.js', { outputFile: `${RUN_DIR}/road/road-events-out-report.html` }],
         ['list'],
       ],
     },
