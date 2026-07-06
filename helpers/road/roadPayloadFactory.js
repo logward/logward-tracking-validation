@@ -46,7 +46,7 @@ function makeRoadPayload(event, situationCode, justificationCode, date, orderRef
     tour: {
       edi_reference: `E2E-TOUR-${orderRef}`,
       reference:     `E2E-TOUR-${orderRef}`,
-      url:           'https://view.shippeo.com/orderPublic/test'
+      url:           'https://view.shippeo.com/tourPublic/test'
     },
 
     situation: {
