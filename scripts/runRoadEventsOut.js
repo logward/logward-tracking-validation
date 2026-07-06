@@ -337,8 +337,8 @@ function buildPayload(eventName, sitCode, justCode, date, orderRef, loadSite, de
   return {
     date_transmission: new Date().toISOString(),
     owner: { organization: { id: 'Q2JK9RVN', name: 'LIDL' }, agency: { id: 'Q27K7Z42', name: 'LIDL_Road', siret: null } },
-    order: { edi_reference: `E2E-EDI-${orderRef}`, reference: orderRef, eta: null, etd: null, url: 'https://view.shippeo.com/orderPublic/test', shippeo_reference: 'NPG8WVVV', ...orderOverrides },
-    tour:  { edi_reference: `E2E-TOUR-${orderRef}`, reference: `E2E-TOUR-${orderRef}` },
+    order: { edi_reference: `E2E-EDI-${orderRef}`, reference: orderRef, eta: null, etd: null, shippeo_reference: 'NPG8WVVV', ...orderOverrides },
+    tour:  { edi_reference: `E2E-TOUR-${orderRef}`, reference: `E2E-TOUR-${orderRef}`, url: 'https://view.shippeo.com/orderPublic/test' },
     situation: { event: eventName, situation_code: sitCode, justification_code: justCode, input_date: date, date },
     situation_justification: { theoretical_distance: 2717, position: { lat: 48.718822, lng: 9.543809 } },
     loading_site:  { id: null, externalID: null, name: loadSite.name, address_line: loadSite.address, zipcode: loadSite.zipcode, city: loadSite.city, country: loadSite.country, position: { lat: loadSite.lat, lng: loadSite.lng }, iata_code: null },

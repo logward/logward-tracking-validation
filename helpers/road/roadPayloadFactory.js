@@ -39,7 +39,6 @@ function makeRoadPayload(event, situationCode, justificationCode, date, orderRef
       reference:         orderRef,   // ← Logward looks up the RTU by this field
       eta:               null,
       etd:               null,
-      url:               'https://view.shippeo.com/orderPublic/test',
       shippeo_reference: 'NPG8WVVV',
       ...orderOverrides,
     },
@@ -47,6 +46,7 @@ function makeRoadPayload(event, situationCode, justificationCode, date, orderRef
     tour: {
       edi_reference: `E2E-TOUR-${orderRef}`,
       reference:     `E2E-TOUR-${orderRef}`,
+      url:           'https://view.shippeo.com/orderPublic/test'
     },
 
     situation: {
