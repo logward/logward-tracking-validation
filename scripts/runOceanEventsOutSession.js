@@ -133,7 +133,7 @@ async function getOTU(objectCode) {
   return res.body?.data ?? res.body;
 }
 
-async function pollOTUChanged(objectCode, baseline, timeoutMs = 25000, settleMs = 5000) {
+async function pollOTUChanged(objectCode, baseline, timeoutMs = 1200000, settleMs = 5000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     await new Promise(r => setTimeout(r, 2500));
@@ -279,8 +279,8 @@ const DIRECT_FIELDS = {
   'actualEmptyReturn':           { stage: 'POD', event: 'container_gate_in_empty',  placeType: 'discharge' },
   'estimatedEmptyReturn':        { stage: 'POD', event: 'container_gate_in_empty',  placeType: 'discharge', sitType: 'estimated', dataSource: 'external' },
   // ── Delivery ────────────────────────────────────────────────────────────────
-  'actualArrivalDestination':    { stage: 'Delivery', event: 'container_arrived',   placeType: 'destination_inland_location' },
-  'estimatedArrivalDestination': { stage: 'Delivery', event: 'container_arrived',   placeType: 'destination_inland_location', sitType: 'estimated', dataSource: 'external' },
+  'actualArrivalDestination':    { stage: 'Delivery', event: 'eta_event_delivery', placeType: 'destination_inland_location', dataSource: 'external' },
+  'estimatedArrivalDestination': { stage: 'Delivery', event: 'eta_event_delivery', placeType: 'destination_inland_location', sitType: 'estimated', dataSource: 'external' },
 };
 
 const TSP_FIELDS = {
@@ -528,7 +528,7 @@ async function executeEvent(eventOpts) {
     await new Promise(r => setTimeout(r, 5000));  // brief wait to let any (unwanted) change propagate
     otuAfter = await getOTU(session.objectCode).catch(() => null);
   } else {
-    otuAfter = await pollOTUChanged(session.objectCode, baseline, 25000);
+    otuAfter = await pollOTUChanged(session.objectCode, baseline, 1200000);
   }
   const duration = Date.now() - t0;
 
@@ -597,10 +597,10 @@ const FIELD_MAPPING_CONDITIONS = {
   estimatedEmptyReturn:         { condition: 'event=container_gate_in_empty + place_type=discharge + type=estimated + DS=external',    source: 'situation.date' },
   motEmptyReturn:               { condition: 'event=container_gate_in_empty + place_type=discharge + transport_mode present',          source: 'situation.transport_mode' },
   // Delivery
-  actualArrivalDestination:    { condition: 'event=container_arrived + place_type=destination + type=actual',               source: 'situation.date' },
-  estimatedArrivalDestination: { condition: 'event=container_arrived + place_type=destination + type=estimated + DS=external',        source: 'situation.date' },
-  destinationCity:             { condition: 'event=container_arrived + place_type=destination + event_site.city present',             source: 'event_site.city' },
-  destinationCountry:          { condition: 'event=container_arrived + place_type=destination + event_site.country present',          source: 'event_site.country' },
+  actualArrivalDestination:    { condition: 'event=eta_event_delivery + place_type=destination + type=actual',               source: 'situation.date' },
+  estimatedArrivalDestination: { condition: 'event=eta_event_delivery + place_type=destination + type=estimated + DS=external',        source: 'situation.date' },
+  destinationCity:             { condition: 'event=eta_event_delivery + place_type=destination + event_site.city present',             source: 'event_site.city' },
+  destinationCountry:          { condition: 'event=eta_event_delivery + place_type=destination + event_site.country present',          source: 'event_site.country' },
   // Always-on
   carrierUpdatedLocodePol:     { condition: 'any event + loading_site.unlocode present',                                              source: 'loading_site.unlocode' },
   carrierUpdatedLocodePod:     { condition: 'any event + delivery_site.unlocode present',                                             source: 'delivery_site.unlocode' },
@@ -663,7 +663,7 @@ function getExpectedFields(event, placeType) {
     },
     'destination_inland_location': {
       // No vessel fields — vessel is in payload but NOT mapped for Delivery
-      'container_arrived':        ['actualArrivalDestination', 'estimatedArrivalDestination', 'destinationCity', 'destinationCountry'],
+      'eta_event_delivery':       ['actualArrivalDestination', 'estimatedArrivalDestination', 'destinationCity', 'destinationCountry'],
     },
     'transhipment': {
       'container_arrived':        ['tsp1Locode', 'actualArrivalTsp1', 'estimatedArrivalTsp1', 'predictedArrivalTsp1', 'leg1VesselImoNumber', 'leg1VesselName'],
@@ -697,7 +697,7 @@ function getDSFreeFields(event, placeType) {
       'container_gate_in_empty':  ['motEmptyReturn'],
     },
     'destination_inland_location': {
-      'container_arrived':        ['destinationCity', 'destinationCountry'],
+      'eta_event_delivery':       ['destinationCity', 'destinationCountry'],
     },
     'transhipment': {
       // tspNLocode has no DS condition

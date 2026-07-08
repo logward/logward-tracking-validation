@@ -33,7 +33,13 @@ const ENVIRONMENTS = {
     adminUpsertUrl:  'https://sandbox-admin.logward.com',
     adminGetUrl:     'https://sandbox-admin.logward.com',
     webhookBaseUrl:  'https://sandbox-admin.logward.com',
-    webhookPath:     '/api/shippeo/roadData/bGlkbC1sb2d3YXJkLXJvYWQtc2FuZGJveC5hcGktdXNlcg==',
+    // Was 'lidl-logward-road-sandbox.api-user' — switched to the 'test.api-user'
+    // slug (same as qa) after confirming it manually against the sandbox host.
+    // Note: this did NOT resolve the low event-processing success rate seen on
+    // sandbox (~1/5 to ~2/10 in testing) — that looks like backend-side
+    // flakiness, not a URL config issue. Kept anyway since it's the
+    // confirmed-working slug and removes one variable.
+    webhookPath:     '/api/shippeo/roadData/bGlkbC1sb2d3YXJkLXJvYWQtdGVzdC5hcGktdXNlcg==',
     webhookApiKey:   process.env.SANDBOX_ROAD_API_KEY || '',
   },
   prod: {

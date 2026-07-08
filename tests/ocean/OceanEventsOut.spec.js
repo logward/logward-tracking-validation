@@ -4248,14 +4248,14 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
 
   test.describe('DEL-01 to DEL-16 | Delivery (Destination Inland)', () => {
 
-    test.describe('DEL-01 to DEL-03 | actual container_arrived at destination_inland', () => {
+    test.describe('DEL-01 to DEL-03 | actual eta_event_delivery at destination_inland', () => {
       let otu = null;
 
       test.beforeAll(async () => {
-        console.log('\n[DEL-01 to DEL-03] container_arrived / actual / destination_inland …');
+        console.log('\n[DEL-01 to DEL-03] eta_event_delivery / actual / destination_inland …');
         ({ otu } = await sendAndWaitE2E(
           makeE2EPayload(
-            'container_arrived',
+            'eta_event_delivery',
             runDate(36000),
             'actual',
             'external',
@@ -4277,14 +4277,14 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
         assertField(otu, 'destinationCountry', SITE.RTM_INLAND.country));
     });
 
-    test.describe('DEL-04 to DEL-06 | estimated container_arrived at destination_inland (external)', () => {
+    test.describe('DEL-04 to DEL-06 | estimated eta_event_delivery at destination_inland (external)', () => {
       let otu = null;
 
       test.beforeAll(async () => {
-        console.log('\n[DEL-04 to DEL-06] container_arrived / estimated / destination_inland / external …');
+        console.log('\n[DEL-04 to DEL-06] eta_event_delivery / estimated / destination_inland / external …');
         ({ otu } = await sendAndWaitE2E(
           makeE2EPayload(
-            'container_arrived',
+            'eta_event_delivery',
             runDate(37000),
             'estimated',
             'external',
@@ -4306,10 +4306,10 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
         assertField(otu, 'destinationCountry', SITE.RTM_INLAND.country));
     });
 
-    test('DEL-07 | Negative — shippeo source => no estimatedArrivalDestination', async () => {
+    test('DEL-07 | Negative — eta_event_delivery + shippeo source => no estimatedArrivalDestination', async () => {
       const { before, after } = await sendAndSnapshot(
         makeE2EPayload(
-          'container_arrived',
+          'eta_event_delivery',
           runDate(37001),
           'estimated',
           'shippeo',
@@ -4319,10 +4319,10 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
       assertNotChanged(before, after, 'estimatedArrivalDestination');
     });
 
-    test('DEL-08 | Negative — container_arrived + discharge place_type => no actualArrivalDestination', async () => {
+    test('DEL-08 | Negative — eta_event_delivery + discharge place_type => no actualArrivalDestination', async () => {
       const { before, after } = await sendAndSnapshot(
         makeE2EPayload(
-          'container_arrived',
+          'eta_event_delivery',
           runDate(37002),
           'actual',
           'external',
@@ -4336,7 +4336,7 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
       const eventSiteNullCity = { ...toEventSite(SITE.RTM_INLAND), city: null };
       const { otu } = await sendAndWaitE2E(
         makeE2EPayload(
-          'container_arrived',
+          'eta_event_delivery',
           runDate(37003),
           'actual',
           'external',
@@ -4351,7 +4351,7 @@ test.describe.serial('OCEAN — Full Lifecycle (Orders-In + Events-Out)', () => 
       const eventSiteNullCountry = { ...toEventSite(SITE.RTM_INLAND), country: null };
       const { otu } = await sendAndWaitE2E(
         makeE2EPayload(
-          'container_arrived',
+          'eta_event_delivery',
           runDate(37004),
           'actual',
           'external',

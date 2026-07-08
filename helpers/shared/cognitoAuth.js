@@ -21,29 +21,28 @@ const {
 const fs   = require('fs');
 const path = require('path');
 
-const CACHE_FILE = path.resolve(__dirname, '../../.cognito-token-cache.json');
+// Cache file is per-environment — qa and prod tokens must never mix.
+function cacheFileFor(envName) {
+  return path.resolve(__dirname, `../../.cognito-token-cache.${envName}.json`);
+}
 
-let _cachedToken  = null;
-let _tokenExpMs   = 0;
+// In-memory cache, also keyed per-environment.
+const _cachedTokens = {}; // envName -> { token, expMs }
 
-function loadCachedToken() {
+function loadCachedToken(envName) {
   try {
-    const raw = JSON.parse(fs.readFileSync(CACHE_FILE, 'utf8'));
+    const raw = JSON.parse(fs.readFileSync(cacheFileFor(envName), 'utf8'));
     return raw.token && raw.expMs ? raw : null;
   } catch { return null; }
 }
 
-function saveCachedToken(token, expMs) {
+function saveCachedToken(envName, token, expMs) {
   try {
-    fs.writeFileSync(CACHE_FILE, JSON.stringify({ token, expMs }, null, 2), 'utf8');
+    fs.writeFileSync(cacheFileFor(envName), JSON.stringify({ token, expMs }, null, 2), 'utf8');
   } catch { /* ignore */ }
 }
 
-const BUFFER_MS   = 120_000; // refresh 2 min before expiry
-
-// Cognito pool config — same pool the Logward frontend uses
-const USER_POOL_ID = process.env.COGNITO_USER_POOL_ID || 'eu-central-1_GIl1izT7B';
-const CLIENT_ID    = process.env.COGNITO_CLIENT_ID    || 'mhq6h7v6n2cdvj9msjooq8kh4';
+const BUFFER_MS = 120_000; // refresh 2 min before expiry
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -62,9 +61,9 @@ function formatExpiry(ms) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-function authenticateWithCognito(username, password) {
+function authenticateWithCognito(username, password, userPoolId, clientId) {
   return new Promise((resolve, reject) => {
-    const pool = new CognitoUserPool({ UserPoolId: USER_POOL_ID, ClientId: CLIENT_ID });
+    const pool = new CognitoUserPool({ UserPoolId: userPoolId, ClientId: clientId });
     const user = new CognitoUser({ Username: username, Pool: pool });
     const auth = new AuthenticationDetails({ Username: username, Password: password });
 
@@ -90,21 +89,34 @@ function authenticateWithCognito(username, password) {
  */
 async function getAdminToken() {
   const { E2E_CONFIG } = require('./e2eConfig');
+  const envName = E2E_CONFIG.ENV_NAME;
+  const pool    = E2E_CONFIG.COGNITO_POOL;
+
+  // 0. No known Cognito pool for this environment (e.g. sandbox) — use the
+  //    manually-pasted ADMIN_TOKEN instead of logging in.
+  if (!pool) {
+    if (E2E_CONFIG.ADMIN_TOKEN) return E2E_CONFIG.ADMIN_TOKEN;
+    throw new Error(
+      `\n  ╔══ No Cognito pool or ADMIN_TOKEN for env "${envName}" ═══════╗\n` +
+      '  ║  Either add a pool to COGNITO_POOLS in e2eConfig.js,         ║\n' +
+      '  ║  or paste a static admin token into the TOKENS section.      ║\n' +
+      '  ╚══════════════════════════════════════════════════════════════╝\n'
+    );
+  }
+
   const cognito = E2E_CONFIG.COGNITO;
 
   // 1. Return in-memory cached token if still valid
-  if (_cachedToken && Date.now() < _tokenExpMs - BUFFER_MS) {
-    return _cachedToken;
+  const memCached = _cachedTokens[envName];
+  if (memCached && Date.now() < memCached.expMs - BUFFER_MS) {
+    return memCached.token;
   }
 
   // 2. Try disk cache — survives across describe block boundaries in Playwright
-  if (!_cachedToken) {
-    const cached = loadCachedToken();
-    if (cached && Date.now() < cached.expMs - BUFFER_MS) {
-      _cachedToken = cached.token;
-      _tokenExpMs  = cached.expMs;
-      return _cachedToken;
-    }
+  const diskCached = loadCachedToken(envName);
+  if (diskCached && Date.now() < diskCached.expMs - BUFFER_MS) {
+    _cachedTokens[envName] = diskCached;
+    return diskCached.token;
   }
 
   // 3. Authenticate via Cognito using credentials (retry once on network error)
@@ -120,17 +132,18 @@ async function getAdminToken() {
     );
   }
 
-  console.log(`\n  [cognitoAuth] Logging in as ${cognito.username}...`);
+  console.log(`\n  [cognitoAuth] Logging in as ${cognito.username} (${envName} pool)...`);
 
   // Retry once on transient network errors
   let lastErr;
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
-      _cachedToken = await authenticateWithCognito(cognito.username, cognito.password);
-      _tokenExpMs  = decodeJwtExpiry(_cachedToken) || (Date.now() + 55 * 60 * 1000);
-      saveCachedToken(_cachedToken, _tokenExpMs);
-      console.log(`  [cognitoAuth] ✅ Logged in — token expires ${formatExpiry(_tokenExpMs)}`);
-      return _cachedToken;
+      const token = await authenticateWithCognito(cognito.username, cognito.password, pool.userPoolId, pool.clientId);
+      const expMs = decodeJwtExpiry(token) || (Date.now() + 55 * 60 * 1000);
+      _cachedTokens[envName] = { token, expMs };
+      saveCachedToken(envName, token, expMs);
+      console.log(`  [cognitoAuth] ✅ Logged in — token expires ${formatExpiry(expMs)}`);
+      return token;
     } catch (e) {
       lastErr = e;
       if (attempt < 2 && e.message.includes('Network')) {

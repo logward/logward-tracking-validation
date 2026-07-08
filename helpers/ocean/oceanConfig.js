@@ -11,7 +11,7 @@
 //    TC002: auto-set in beforeAll by createOceanTrackingObject()
 // ─────────────────────────────────────────────────────────────────────────────
 
-const { E2E_CONFIG } = require('../e2e/e2eConfig');
+const { E2E_CONFIG } = require('../shared/e2eConfig');
 
 const CONFIG = {
   // ── Webhook (Shippeo → Logward ingestion) ──────────────────────────────────

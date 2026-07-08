@@ -68,8 +68,8 @@ const ENVIRONMENTS = {
     trackingUrl:     'https://qa.logward.engineering',
     webhookUrl:      'https://qa.logward.engineering',
     webhookPath:     '/api/integration-hub/tracking/shippeo/ocean_order_event_out',
-    webhookClientId: 'wCQU29iqXuWMYkTcU6',
-    accountId:       'wCQU29iqXuWMYkTcU6',
+    webhookClientId: 'Vbc1r8621FLbtFFl2E',
+    accountId:       'Vbc1r8621FLbtFFl2E',
   },
   sandbox: {
     label:           'Sandbox',
@@ -99,6 +99,30 @@ if (!ENV) throw new Error(`Unknown E2E_ENV "${SELECTED_ENV}". Valid options: qa 
 const ENV_TOKENS = TOKENS[SELECTED_ENV];
 
 // ─────────────────────────────────────────────────────────────────────────────
+//  Cognito user pools — each environment is a separate AWS Cognito pool.
+//  cognitoAuth.js logs in with COGNITO.username/password against the pool
+//  for the active environment. No entry → falls back to a manually-pasted
+//  ADMIN_TOKEN instead of a live login.
+//
+//  Sandbox shares QA's pool (pre-existing behavior — the original single
+//  hardcoded USER_POOL_ID/CLIENT_ID applied to every environment before
+//  Prod got its own dedicated pool below).
+// ─────────────────────────────────────────────────────────────────────────────
+const QA_POOL = {
+  userPoolId: process.env.COGNITO_USER_POOL_ID || 'eu-central-1_GIl1izT7B',
+  clientId:   process.env.COGNITO_CLIENT_ID    || 'mhq6h7v6n2cdvj9msjooq8kh4',
+};
+
+const COGNITO_POOLS = {
+  qa:      QA_POOL,
+  sandbox: QA_POOL,
+  prod: {
+    userPoolId: process.env.PROD_COGNITO_USER_POOL_ID || 'eu-central-1_mocxL7b4i',
+    clientId:   process.env.PROD_COGNITO_CLIENT_ID    || '3gjaq30hsh6rpqat9tsmgj0js2',
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 //  FINAL CONFIG  (consumed by all helper files — do not edit below this line)
 // ─────────────────────────────────────────────────────────────────────────────
 const E2E_CONFIG = {
@@ -108,11 +132,23 @@ const E2E_CONFIG = {
   ENV_LABEL: ENV.label,
 
   // ── Cognito credentials — used by cognitoAuth.js to auto-login ──────────
-  // Set once; cognitoAuth.js refreshes the token automatically every ~1h
+  // Set once; cognitoAuth.js refreshes the token automatically every ~1h.
+  // Same email/password work across qa and prod pools (confirmed).
   COGNITO: {
     username: process.env.LOGWARD_USERNAME,
     password: process.env.LOGWARD_PASSWORD,
   },
+
+  // ── Cognito pool for the active environment (qa/prod) — see COGNITO_POOLS
+  // above. null for environments (e.g. sandbox) with no known pool, in which
+  // case cognitoAuth.js falls back to the static ADMIN_TOKEN below.
+  COGNITO_POOL: COGNITO_POOLS[SELECTED_ENV] || null,
+
+  // ── Static admin token (sandbox, or as a manual override) — pasted by
+  // hand, expires ~hourly. Only used when COGNITO_POOL is null.
+  ADMIN_TOKEN: (ENV_TOKENS.adminToken && !ENV_TOKENS.adminToken.startsWith('<'))
+    ? ENV_TOKENS.adminToken
+    : undefined,
 
   // ── Admin API — all use Cognito token via cognitoAuth.js ─────────────────
   ADMIN_BASE_URL:    ENV.adminUrl,                        // upsert (create/update)

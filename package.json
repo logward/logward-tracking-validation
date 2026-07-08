@@ -30,6 +30,7 @@
     "@playwright/test": "^1.58.2",
     "@types/node": "^25.5.0",
     "amazon-cognito-identity-js": "^6.3.16",
-    "dotenv": "^17.4.2"
+    "dotenv": "^17.4.2",
+    "otplib": "^13.4.1"
   }
 }

@@ -5,3 +5,4 @@ test-results/
 *.env.local
 .shippeo-token-cache.json
 .cognito-token-cache.json
+.cognito-token-cache.*.json

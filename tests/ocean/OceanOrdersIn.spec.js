@@ -383,12 +383,12 @@ async function sendFourEvents(objectCode, containerNumber, bookingNumber, blNumb
   const otu3 = await pollOtuChanged(objectCode, baseline);
   if (otu3) V.assertMappingCondition(otu3, V.buildArrivalPODSpec());
 
-  // ── EVENT 4: container_arrived + destination_inland_location + actual ─────
+  // ── EVENT 4: eta_event_delivery + destination_inland_location + actual ───
   beforeRaw = await getOceanTrackingObject(objectCode).catch(() => null);
   baseline  = (Array.isArray(beforeRaw) ? beforeRaw[0] : beforeRaw)?.lastChangedAt ?? null;
   const s4 = await sendWebhookEvent(
     containerNumber, bookingNumber, blNumber,
-    'container_arrived', DEL_DATES.actualArrival, 'actual', null,
+    'eta_event_delivery', DEL_DATES.actualArrival, 'actual', null,
     e4Site, loadingSite, deliverySite, vessel
   );
   expect(s4).toBe(200);

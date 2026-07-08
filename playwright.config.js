@@ -27,10 +27,11 @@ const { defineConfig } = require('@playwright/test');
 
 // ── Unique folder per run ─────────────────────────────────────────────────────
 // Computed once at startup — every report from this run goes into the same folder.
-const RUN_TS  = new Date().toISOString().slice(0, 19).replace(/:/g, '-');  // 2026-06-08T16-53-11
-const RUN_DIR = `playwright-report/runs/${RUN_TS}`;
+// If PLAYWRIGHT_RUN_DIR is already set (e.g. by runOceanFull.js), reuse it so
+// multi-suite runners can direct both suites into the same output directory.
+const RUN_TS  = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+const RUN_DIR = process.env.PLAYWRIGHT_RUN_DIR || `playwright-report/runs/${RUN_TS}`;
 
-// Export so ordersInReporter.js can write its custom HTML into the same folder
 process.env.PLAYWRIGHT_RUN_DIR = RUN_DIR;
 
 console.log(`\n  📁 Reports folder: ${RUN_DIR}\n`);
@@ -68,7 +69,7 @@ module.exports = defineConfig({
       retries: 1,       // auto-retry once on transient failures (502, Shippeo slow)
       reporter: [
         ['html', { outputFolder: `${RUN_DIR}/ocean`, open: 'never' }],
-        ['./helpers/e2e/eventsOutReporter.js', { outputFile: `${RUN_DIR}/ocean/events-out-report.html` }],
+        ['./helpers/shared/eventsOutReporter.js', { outputFile: `${RUN_DIR}/ocean/events-out-report.html` }],
         ['list'],
       ],
     },

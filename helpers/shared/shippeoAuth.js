@@ -123,14 +123,19 @@ function postForm(body) {
 
 function fetchTokenFromCredentials(username, password, baseUrl) {
   return new Promise((resolve, reject) => {
-    const credentials = Buffer.from(`${username}:${password}`).toString('base64');
-    const url = new URL(`${baseUrl}/api/tokens`);
-    const req = https.request({
+    const url  = new URL(`${baseUrl}/api/tokens`);
+    const body = JSON.stringify({ email: username, password });
+    const req  = https.request({
       hostname: url.hostname,
       path:     url.pathname,
       method:   'POST',
       headers:  {
-        'Authorization': `Basic ${credentials}`,
+        'Content-Type':   'application/json',
+        'Content-Length': Buffer.byteLength(body),
+        'Accept':         'application/json',
+        'Origin':         'https://inthebackofthetruck.shippeo.io',
+        'Referer':        'https://inthebackofthetruck.shippeo.io/',
+        'User-Agent':     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
       },
     }, (res) => {
       let raw = '';
@@ -141,14 +146,15 @@ function fetchTokenFromCredentials(username, password, baseUrl) {
           return;
         }
         try {
-          const body  = JSON.parse(raw);
-          const token = body?.data?.token;
+          const parsed = JSON.parse(raw);
+          const token  = parsed?.data?.token;
           if (!token) reject(new Error(`No token in response: ${raw.slice(0, 200)}`));
           else        resolve(token);
         } catch { reject(new Error(`Non-JSON: ${raw.slice(0, 200)}`)); }
       });
     });
     req.on('error', reject);
+    req.write(body);
     req.end();
   });
 }

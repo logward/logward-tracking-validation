@@ -28,34 +28,42 @@ function run(cmd) {
 function collectReports(branch) {
   const reports = [];
 
+  // Sessions — all, newest first (each session = a distinct E2E run)
   if (fs.existsSync(SESSIONS_DIR)) {
     fs.readdirSync(SESSIONS_DIR)
       .filter(f => f.endsWith('.html'))
       .sort().reverse()
       .forEach(f => {
-        const isRoad = f.startsWith('road-session-');
-        const raw  = f.replace('road-session-', '').replace('session-', '').replace('.html', '');
+        const isRoad   = f.startsWith('road-session-');
+        const isFull   = f.startsWith('ocean-full-');
+        const raw  = f.replace('road-session-', '').replace('ocean-full-', '').replace('session-', '').replace('.html', '');
         const date = raw.replace('T', ' ').slice(0, 16);
-        const type = isRoad ? 'Road Events-Out' : 'Ocean Events-Out';
+        const type = isRoad ? 'Road Events-Out' : isFull ? 'Ocean Full' : 'Ocean Events-Out';
         const filePath = `playwright-report/sessions/${f}`;
         const url = `https://htmlpreview.github.io/?https://github.com/${REPO}/blob/${branch}/${filePath}`;
         reports.push({ type, date, url, filePath });
       });
   }
 
+  // Runs — keep only the LATEST run per calendar day to avoid hundreds of near-identical rows
   if (fs.existsSync(RUNS_DIR)) {
+    const seenDay = new Set();
     fs.readdirSync(RUNS_DIR).sort().reverse().forEach(runDir => {
       const oceanDir = path.join(RUNS_DIR, runDir, 'ocean');
       if (!fs.existsSync(oceanDir)) return;
+      const day = runDir.slice(0, 10); // e.g. "2026-06-22"
+      if (seenDay.has(day)) return;
       fs.readdirSync(oceanDir).filter(f => f.endsWith('.html')).forEach(f => {
         const date = runDir.replace('T', ' ').slice(0, 16);
         const filePath = `playwright-report/runs/${runDir}/ocean/${f}`;
         const url = `https://htmlpreview.github.io/?https://github.com/${REPO}/blob/${branch}/${filePath}`;
         reports.push({ type: 'Orders-In', date, url, filePath });
+        seenDay.add(day);
       });
     });
   }
 
+  // Summaries — all
   if (fs.existsSync(SUMMARIES_DIR)) {
     fs.readdirSync(SUMMARIES_DIR)
       .filter(f => f.endsWith('.html'))
@@ -76,7 +84,7 @@ function buildIndex(reports, branch) {
 
   const rows = reports.map(r => `
     <tr>
-      <td><span class="badge ${r.type === 'Ocean Events-Out' ? 'ev' : r.type === 'Road Events-Out' ? 'rd' : r.type === 'Daily Summary' ? 'ds' : 'oi'}">${r.type}</span></td>
+      <td><span class="badge ${r.type === 'Ocean Full' ? 'of' : r.type === 'Ocean Events-Out' ? 'ev' : r.type === 'Road Events-Out' ? 'rd' : r.type === 'Daily Summary' ? 'ds' : 'oi'}">${r.type}</span></td>
       <td class="date">${r.date} UTC</td>
       <td><a href="${r.url}" target="_blank">Open Report →</a></td>
     </tr>`).join('');
@@ -105,6 +113,7 @@ function buildIndex(reports, branch) {
     a{color:#3182ce;text-decoration:none;font-weight:600;}
     a:hover{text-decoration:underline;}
     .badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.7rem;font-weight:700;}
+    .badge.of{background:#1a365d;color:#90cdf4;}
     .badge.ev{background:#c6f6d5;color:#22543d;}
     .badge.rd{background:#FEF3C7;color:#92400E;}
     .badge.oi{background:#bee3f8;color:#2a4365;}
@@ -120,8 +129,11 @@ function buildIndex(reports, branch) {
   <div class="body">
     <div class="summary">
       <div class="stat"><div class="n">${reports.length}</div><div class="l">Total Reports</div></div>
-      <div class="stat"><div class="n">${reports.filter(r=>r.type==='Events-Out').length}</div><div class="l">Events-Out Sessions</div></div>
-      <div class="stat"><div class="n">${reports.filter(r=>r.type==='Orders-In').length}</div><div class="l">Orders-In Runs</div></div>
+      <div class="stat"><div class="n">${reports.filter(r=>r.type==='Ocean Full').length}</div><div class="l">Ocean Full Reports</div></div>
+      <div class="stat"><div class="n">${reports.filter(r=>r.type==='Ocean Events-Out').length}</div><div class="l">Ocean E2E Sessions</div></div>
+      <div class="stat"><div class="n">${reports.filter(r=>r.type==='Road Events-Out').length}</div><div class="l">Road E2E Sessions</div></div>
+      <div class="stat"><div class="n">${reports.filter(r=>r.type==='Orders-In').length}</div><div class="l">Orders-In Days</div></div>
+      <div class="stat"><div class="n">${reports.filter(r=>r.type==='Daily Summary').length}</div><div class="l">Daily Summaries</div></div>
     </div>
     <table>
       <thead><tr><th>Type</th><th>Date (UTC)</th><th>Report</th></tr></thead>
@@ -166,7 +178,8 @@ function main() {
   console.log('📌 SHARE THIS LINK — all reports in one page:');
   console.log(`\n   ${indexUrl}\n`);
   console.log('━'.repeat(60));
-  console.log(`\n   Latest Events-Out : ${reports.find(r=>r.type==='Events-Out')?.url}`);
+  console.log(`\n   Latest Ocean E2E  : ${reports.find(r=>r.type==='Ocean Events-Out')?.url}`);
+  console.log(`   Latest Road E2E   : ${reports.find(r=>r.type==='Road Events-Out')?.url}`);
   console.log(`   Latest Orders-In  : ${reports.find(r=>r.type==='Orders-In')?.url}`);
   console.log('');
 }
