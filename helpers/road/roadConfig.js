@@ -1,5 +1,4 @@
 // @ts-check
-// @ts-check
 // ─────────────────────────────────────────────────────────────────────────────
 //  helpers/road/roadConfig.js
 //
@@ -33,13 +32,7 @@ const ENVIRONMENTS = {
     adminUpsertUrl:  'https://sandbox-admin.logward.com',
     adminGetUrl:     'https://sandbox-admin.logward.com',
     webhookBaseUrl:  'https://sandbox-admin.logward.com',
-    // Was 'lidl-logward-road-sandbox.api-user' — switched to the 'test.api-user'
-    // slug (same as qa) after confirming it manually against the sandbox host.
-    // Note: this did NOT resolve the low event-processing success rate seen on
-    // sandbox (~1/5 to ~2/10 in testing) — that looks like backend-side
-    // flakiness, not a URL config issue. Kept anyway since it's the
-    // confirmed-working slug and removes one variable.
-    webhookPath:     '/api/shippeo/roadData/bGlkbC1sb2d3YXJkLXJvYWQtdGVzdC5hcGktdXNlcg==',
+    webhookPath:     '/api/shippeo/roadData/bGlkbC1sb2d3YXJkLXJvYWQtc2FuZGJveC5hcGktdXNlcg==',
     webhookApiKey:   process.env.SANDBOX_ROAD_API_KEY || '',
   },
   prod: {
@@ -47,12 +40,12 @@ const ENVIRONMENTS = {
     adminUpsertUrl:  'https://admin.logward.com',
     adminGetUrl:     'https://admin.logward.com',
     webhookBaseUrl:  'https://admin.logward.com',
-    webhookPath:     '/api/shippeo/roadData/bGlkbC1sb2d3YXJkLXJvYWQucGFwaS11c2Vy',
+    webhookPath:     '/api/shippeo/roadData/bGlkbC1sb2d3YXJkLXJvYWQtdGVzdC5hcGktdXNlcg==',
     webhookApiKey:   process.env.PROD_ROAD_API_KEY || '',
   },
 };
 
-const ENV = ENVIRONMENTS[SELECTED_ENV];
+const ENV = ENVIRONMENTS[/** @type {keyof typeof ENVIRONMENTS} */ (SELECTED_ENV)];
 if (!ENV) throw new Error(`Unknown E2E_ENV "${SELECTED_ENV}". Valid options: qa | sandbox | prod`);
 
 const CONFIG = {
