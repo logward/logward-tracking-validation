@@ -3,7 +3,7 @@
 //
 //  Ocean tracking config — single source of truth for all ocean tests.
 //
-//  Tokens and URLs are pulled from E2E_CONFIG (helpers/e2e/e2eConfig.js).
+//  Tokens and URLs are pulled from E2E_CONFIG (helpers/shared/e2eConfig.js).
 //  To switch environment or refresh tokens, update e2eConfig.js only.
 //
 //  OBJECT_CODE and CONTAINER_NUMBER are set at runtime:
@@ -11,7 +11,7 @@
 //    TC002: auto-set in beforeAll by createOceanTrackingObject()
 // ─────────────────────────────────────────────────────────────────────────────
 
-const { E2E_CONFIG } = require('../e2e/e2eConfig');
+const { E2E_CONFIG } = require('../shared/e2eConfig');
 
 const CONFIG = {
   // ── Webhook (Shippeo → Logward ingestion) ──────────────────────────────────

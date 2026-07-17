@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>E2E Session Report — 2026-06-13 17:41:19 UTC</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f2f5;color:#1a1a2e;font-size:13px;}
+    .hdr{background:linear-gradient(135deg,#1a1a2e,#0f3460);color:#fff;padding:24px 40px;}
+    .hdr h1{font-size:1.5rem;font-weight:700;}
+    .hdr .sub{color:#a0aec0;margin-top:4px;}
+    .stats{display:flex;gap:24px;margin-top:14px;flex-wrap:wrap;}
+    .stat{font-size:.78rem;color:#cbd5e0;}
+    .stat strong{display:block;font-size:1rem;}
+    .stat.pass strong{color:#9ae6b4;} .stat.fail strong{color:#fc8181;}
+    .banner{margin:16px 40px;padding:12px 20px;border-radius:8px;font-weight:600;font-size:.9rem;}
+    .banner.ok{background:#f0fff4;border:1.5px solid #68d391;color:#276749;}
+    .banner.fail{background:#fff5f5;border:1.5px solid #fc8181;color:#9b2335;}
+    .otu-box{margin:0 40px 16px;background:#fff;border-radius:8px;border:1px solid #e2e8f0;padding:14px 20px;font-size:.82rem;}
+    .otu-box h3{font-weight:700;margin-bottom:8px;color:#4a5568;}
+    .otu-box .fields{display:flex;flex-wrap:wrap;gap:12px;}
+    .otu-box .field-item{background:#edf2f7;padding:4px 10px;border-radius:4px;}
+    .otu-box .field-item span{font-weight:700;color:#2d3748;}
+    .events{margin:0 40px 32px;display:flex;flex-direction:column;gap:12px;}
+    .event-card{background:#fff;border-radius:8px;border:1px solid #e2e8f0;overflow:hidden;}
+    .event-card.pass{border-left:4px solid #68d391;} .event-card.fail{border-left:4px solid #fc8181;}
+    .event-header{display:flex;align-items:center;gap:8px;padding:10px 16px;background:#fafafa;flex-wrap:wrap;}
+    .seq{background:#edf2f7;padding:2px 8px;border-radius:4px;font-weight:700;font-size:.75rem;}
+    .event-name{font-weight:700;font-size:.85rem;color:#2d3748;}
+    .place-type,.sit-type{font-size:.75rem;background:#ebf4ff;color:#2b6cb0;padding:2px 8px;border-radius:10px;}
+    .http{font-size:.75rem;color:#718096;}
+    .duration{font-size:.72rem;color:#a0aec0;}
+    .ts{font-size:.72rem;color:#a0aec0;margin-left:auto;}
+    .badge{padding:2px 10px;border-radius:10px;font-size:.72rem;font-weight:700;}
+    .badge.pass{background:#c6f6d5;color:#22543d;} .badge.fail{background:#fed7d7;color:#9b2335;}
+    .assertions{width:100%;border-collapse:collapse;}
+    .assertions thead tr{background:#f7fafc;}
+    .assertions th{padding:6px 14px;text-align:left;font-size:.7rem;text-transform:uppercase;color:#a0aec0;border-bottom:1px solid #e2e8f0;}
+    .assertions td{padding:7px 14px;border-bottom:1px solid #f7fafc;font-size:.78rem;}
+    .assertions tr.pass td{} .assertions tr.fail td{background:#fff5f5;}
+    .assertions .field{font-family:monospace;font-weight:600;color:#2b6cb0;}
+    code{font-family:monospace;background:#f7fafc;padding:1px 5px;border-radius:3px;font-size:.77rem;}
+    .exp{background:#fff5f5;color:#e53e3e;}
+    .footer{text-align:center;padding:16px;font-size:.75rem;color:#a0aec0;}
+  </style>
+</head>
+<body>
+<div class="hdr">
+  <h1>🌊 E2E Session Report — Events-Out</h1>
+  <p class="sub">Interactive session: 2026-06-13 17:41:19 UTC</p>
+  <div class="stats">
+    <div class="stat"><strong>4</strong>Events Run</div>
+    <div class="stat pass"><strong>3</strong>Passed</div>
+    <div class="stat fail"><strong>1</strong>Failed</div>
+    <div class="stat"><strong>1637.0s</strong>Duration</div>
+  </div>
+</div>
+<div class="banner fail">
+  ❌ 1 event(s) failed
+</div>
+<div class="otu-box">
+  <h3>OTU Details</h3>
+  <div class="fields">
+    <div class="field-item">Object Code <span>53379f81d917</span></div>
+    <div class="field-item">Container No <span>LGTE0154788</span></div>
+    <div class="field-item">Booking No <span>SESBN54788</span></div>
+    <div class="field-item">Bill of Lading <span>SESBL54788</span></div>
+    <div class="field-item">SCAC <span>MSCU</span></div>
+    <div class="field-item">Shippeo Verified <span>✅ Yes</span></div>
+    <div class="field-item">Shippeo Order ID <span>145118616</span></div>
+  </div>
+</div>
+<div class="events">
+    <div class="event-card fail">
+      <div class="event-header">
+        <span class="seq">#1</span>
+        <span class="event-name">container_gate_out_empty</span>
+        <span class="place-type">origin_inland_location</span>
+        <span class="sit-type">actual</span>
+        <span class="http">HTTP 200</span>
+        <span class="duration">8034ms</span>
+        <span class="ts">17:15:24 UTC</span>
+        <span class="badge fail">FAILED</span>
+      </div>
+      <table class="assertions">
+        <thead><tr><th></th><th>Field</th><th>Actual</th><th>Expected (on fail)</th></tr></thead>
+        <tbody><tr class="pass">
+        <td>✅</td>
+        <td class="field">carrierUpdatedLocodePol</td>
+        <td><code>KRPUS</code></td>
+        <td></td>
+       </tr><tr class="pass">
+        <td>✅</td>
+        <td class="field">carrierUpdatedLocodePod</td>
+        <td><code>GBFXT</code></td>
+        <td></td>
+       </tr><tr class="fail">
+        <td>❌</td>
+        <td class="field">leg1VesselImoNumber</td>
+        <td><code>—</code></td>
+        <td><code class="exp">set</code></td>
+       </tr><tr class="fail">
+        <td>❌</td>
+        <td class="field">leg1VesselName</td>
+        <td><code>—</code></td>
+        <td><code class="exp">set</code></td>
+       </tr><tr class="pass">
+        <td>✅</td>
+        <td class="field">actualGateOutEmptyDepot</td>
+        <td><code>2026-06-08 16:00:00</code></td>
+        <td></td>
+       </tr><tr class="pass">
+        <td>✅</td>
+        <td class="field">depotPreLocation</td>
+        <td><code>Ningbo</code></td>
+        <td></td>
+       </tr><tr class="pass">
+        <td>✅</td>
+        <td class="field">depotPreCountry</td>
+        <td><code>CN</code></td>
+        <td></td>
+       </tr><tr class="pass">
+        <td>✅</td>
+        <td class="field">motGateOutEmpty</td>
+        <td><code>ocean</code></td>
+        <td></td>
+       </tr></tbody>
+      </table>
+    </div>
+    <div class="event-card pass">
+      <div class="event-header">
+        <span class="seq">#2</span>
+        <span class="event-name">container_loaded</span>
+        <span class="place-type">loading</span>
+        <span class="sit-type">actual</span>
+        <span class="http">HTTP 200</span>
+        <span class="duration">3828ms</span>
+        <span class="ts">17:15:28 UTC</span>
+        <span class="badge pass">PASSED</span>
+      </div>
+      <table class="assertions">
+        <thead><tr><th></th><th>Field</th><th>Actual</th><th>Expected (on fail)</th></tr></thead>
+        <tbody><tr class="pass">
+        <td>✅</td>
+        <td class="field">carrierUpdatedLocodePol</td>
+        <td><code>CNNGB</code></td>
+        <td></td>
+       </tr><tr class="pass">
+        <td>✅</td>
+        <td class="field">carrierUpdatedLocodePod</td>
+        <td><code>DEHAM</code></td>
+        <td></td>
+       </tr><tr class="pass">
+        <td>✅</td>
+        <td class="field">leg1VesselImoNumber</td>
+        <td><code>9864239</code></td>
+        <td></td>
+       </tr><tr class="pass">
+        <td>✅</td>
+        <td class="field">leg1VesselName</td>
+        <td><code>ZEUS LUMOS</code></td>
+        <td></td>
+       </tr><tr class="pass">
+        <td>✅</td>
+        <td class="field">actualLoadPol</td>
+        <td><code>2026-06-08 16:00:00</code></td>
+        <td></td>
+       </tr><tr class="pass">
+        <td>✅</td>
+        <td class="field">leg1Mot</td>
+        <td><code>ocean</code></td>
+        <td></td>
+       </tr></tbody>
+      </table>
+    </div>
+    <div class="event-card pass">
+      <div class="event-header">
+        <span class="seq">#3</span>
+        <span class="event-name">container_departed</span>
+        <span class="place-type">loading</span>
+        <span class="sit-type">estimated · external</span>
+        <span class="http">HTTP 200</span>
+        <span class="duration">5901ms</span>
+        <span class="ts">17:16:47 UTC</span>
+        <span class="badge pass">PASSED</span>
+      </div>
+      <table class="assertions">
+        <thead><tr><th></th><th>Field</th><th>Actual</th><th>Expected (on fail)</th></tr></thead>
+        <tbody><tr class="pass">
+        <td>✅</td>
+        <td class="field">carrierUpdatedLocodePol</td>
+        <td><code>SGSIN</code></td>
+        <td></td>
+       </tr><tr class="pass">
+        <td>✅</td>
+        <td class="field">carrierUpdatedLocodePod</td>
+        <td><code>DEHAM</code></td>
+        <td></td>
+       </tr><tr class="pass">
+        <td>✅</td>
+        <td class="field">leg1VesselImoNumber</td>
+        <td><code>9999001</code></td>
+        <td></td>
+       </tr><tr class="pass">
+        <td>✅</td>
+        <td class="field">leg1VesselName</td>
+        <td><code>EVER GIVEN</code></td>
+        <td></td>
+       </tr><tr class="pass">
+        <td>✅</td>
+        <td class="field">estimatedDeparturePol</td>
+        <td><code>2026-06-08 16:00:00</code></td>
+        <td></td>
+       </tr></tbody>
+      </table>
+    </div>
+    <div class="event-card pass">
+      <div class="event-header">
+        <span class="seq">#4</span>
+        <span class="event-name">container_departed</span>
+        <span class="place-type">origin_inland_location</span>
+        <span class="sit-type">actual</span>
+        <span class="http">HTTP 200</span>
+        <span class="duration">9522ms</span>
+        <span class="ts">17:17:40 UTC</span>
+        <span class="badge pass">PASSED</span>
+      </div>
+      <table class="assertions">
+        <thead><tr><th></th><th>Field</th><th>Actual</th><th>Expected (on fail)</th></tr></thead>
+        <tbody><tr class="pass">
+        <td>✅</td>
+        <td class="field">carrierUpdatedLocodePol</td>
+        <td><code>SGSIN</code></td>
+        <td></td>
+       </tr><tr class="pass">
+        <td>✅</td>
+        <td class="field">carrierUpdatedLocodePod</td>
+        <td><code>NLRTM</code></td>
+        <td></td>
+       </tr><tr class="pass">
+        <td>✅</td>
+        <td class="field">leg1VesselImoNumber</td>
+        <td><code>9999001</code></td>
+        <td></td>
+       </tr><tr class="pass">
+        <td>✅</td>
+        <td class="field">leg1VesselName</td>
+        <td><code>EVER GIVEN</code></td>
+        <td></td>
+       </tr><tr class="pass">
+        <td>✅</td>
+        <td class="field">actualDepartureFromOrigin</td>
+        <td><code>2026-06-08 10:00:00</code></td>
+        <td></td>
+       </tr><tr class="pass">
+        <td>✅</td>
+        <td class="field">pickUpOriginLocation</td>
+        <td><code>Hamburg</code></td>
+        <td></td>
+       </tr><tr class="pass">
+        <td>✅</td>
+        <td class="field">pickUpOriginCountry</td>
+        <td><code>DE</code></td>
+        <td></td>
+       </tr><tr class="pass">
+        <td>✅</td>
+        <td class="field">motPickUpOrigin</td>
+        <td><code>ocean</code></td>
+        <td></td>
+       </tr></tbody>
+      </table>
+    </div></div>
+<div class="footer">Logward QA Automation — E2E Session Report · 2026-06-13 17:41:19 UTC</div>
+</body>
+</html>

@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/>
+<title>Road E2E Session Report — 2026-07-07 06:48:07 UTC</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f2f5;color:#1a1a2e;font-size:13px;}
+.hdr{background:linear-gradient(135deg,#1a1a2e,#0f3460);color:#fff;padding:24px 40px;}
+.hdr h1{font-size:1.5rem;font-weight:700;}.hdr .sub{color:#a0aec0;margin-top:4px;}
+.stats{display:flex;gap:24px;margin-top:14px;flex-wrap:wrap;}
+.stat{font-size:.78rem;color:#cbd5e0;}.stat strong{display:block;font-size:1rem;}
+.stat.pass strong{color:#9ae6b4;}.stat.fail strong{color:#fc8181;}
+.banner{margin:16px 40px;padding:12px 20px;border-radius:8px;font-weight:600;font-size:.9rem;}
+.banner.ok{background:#f0fff4;border:1.5px solid #68d391;color:#276749;}
+.banner.fail{background:#fff5f5;border:1.5px solid #fc8181;color:#9b2335;}
+.rtu-box{margin:0 40px 16px;background:#fff;border-radius:8px;border:1px solid #e2e8f0;padding:14px 20px;font-size:.82rem;}
+.rtu-box h3{font-weight:700;margin-bottom:8px;color:#4a5568;}
+.rtu-box .fields{display:flex;flex-wrap:wrap;gap:12px;}
+.rtu-box .field-item{background:#edf2f7;padding:4px 10px;border-radius:4px;}
+.rtu-box .field-item span{font-weight:700;color:#2d3748;}
+.events{margin:0 40px 32px;display:flex;flex-direction:column;gap:12px;}
+.event-card{background:#fff;border-radius:8px;border:1px solid #e2e8f0;overflow:hidden;}
+.event-card.pass{border-left:4px solid #68d391;}.event-card.fail{border-left:4px solid #fc8181;}
+.event-header{display:flex;align-items:center;gap:8px;padding:10px 16px;background:#fafafa;flex-wrap:wrap;}
+.seq{background:#edf2f7;padding:2px 8px;border-radius:4px;font-weight:700;font-size:.75rem;}
+.event-name{font-weight:700;font-size:.85rem;color:#2d3748;}
+.sit-type{font-size:.75rem;background:#ebf4ff;color:#2b6cb0;padding:2px 8px;border-radius:10px;}
+.http{font-size:.75rem;color:#718096;}.duration{font-size:.72rem;color:#a0aec0;}
+.ts{font-size:.72rem;color:#a0aec0;margin-left:auto;}
+.badge{padding:2px 10px;border-radius:10px;font-size:.72rem;font-weight:700;}
+.badge.pass{background:#c6f6d5;color:#22543d;}.badge.fail{background:#fed7d7;color:#9b2335;}
+.assertions{width:100%;border-collapse:collapse;table-layout:fixed;}
+.assertions thead tr{background:#f7fafc;}
+.assertions th{padding:6px 14px;text-align:left;font-size:.7rem;text-transform:uppercase;color:#a0aec0;border-bottom:1px solid #e2e8f0;}
+.assertions th:nth-child(1){width:38px;}.assertions th:nth-child(2){width:22%;}.assertions th:nth-child(3){width:44%;}.assertions th:nth-child(4){width:18%;}.assertions th:nth-child(5){width:13%;}
+.assertions td{padding:7px 14px;border-bottom:1px solid #f7fafc;font-size:.78rem;word-break:break-word;vertical-align:top;}
+.assertions td:first-child{text-align:center;padding:7px 4px;width:38px;}
+.assertions tr.fail td{background:#fff5f5;}
+.assertions .field-name{font-family:monospace;font-weight:700;color:#2b6cb0;font-size:.82rem;}
+.pos-label{display:inline-block;background:#c6f6d5;color:#22543d;padding:1px 6px;border-radius:3px;font-size:.7rem;font-weight:700;}
+.unexpected-label{display:inline-block;background:#fed7d7;color:#9b2335;padding:1px 6px;border-radius:3px;font-size:.7rem;font-weight:700;}
+.flow-pos{background:#c6f6d5;color:#22543d;padding:2px 8px;border-radius:10px;font-size:.72rem;font-weight:700;}
+.flow-neg{background:#fed7d7;color:#9b2335;padding:2px 8px;border-radius:10px;font-size:.72rem;font-weight:700;}
+.neg-strategy{background:#fffbeb;border:1px solid #f6e05e;border-radius:6px;padding:8px 14px;margin:8px 0 4px;font-size:.8rem;color:#744210;}
+.cond-cell{vertical-align:top;}.cond-block{background:#f7fafc;border:1px solid #e2e8f0;border-radius:4px;padding:6px 8px;margin-bottom:4px;}
+.cond-title{font-size:.7rem;font-weight:700;color:#4a5568;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;}
+.cond-table{width:100%;border-collapse:collapse;font-size:.72rem;}
+.cond-table td{padding:2px 6px;vertical-align:top;word-break:break-word;}
+.cond-row.cond-fail td{background:#fff5f5;}
+.cond-key{font-family:monospace;color:#2d3748;font-weight:600;width:38%;}
+.cond-required{color:#718096;width:33%;}.cond-sent{color:#2d3748;width:29%;}
+.cond-summary{font-size:.72rem;padding:3px 6px;border-radius:3px;margin-top:3px;font-weight:600;}
+.cond-summary.pos{background:#c6f6d5;color:#22543d;}.cond-summary.neg{background:#fed7d7;color:#9b2335;}
+.cond-summary.warn{background:#fefcbf;color:#744210;}.cond-summary.blocked{background:#fef3c7;color:#92400e;}
+.blocked-label{display:inline-block;background:#fef3c7;color:#92400e;padding:1px 6px;border-radius:3px;font-size:.7rem;font-weight:700;}
+tr.blocked td{background:#fffbeb;}
+code{font-family:monospace;background:#f7fafc;padding:1px 5px;border-radius:3px;font-size:.77rem;}
+.exp{background:#fff5f5;color:#e53e3e;}
+.footer{text-align:center;padding:16px;font-size:.75rem;color:#a0aec0;}
+</style></head><body>
+<div class="hdr">
+  <h1>🚛 Road E2E Session Report — Events-Out</h1>
+  <p class="sub">Interactive session: 2026-07-07 06:48:07 UTC</p>
+  <div class="stats">
+    <div class="stat"><strong>23</strong>Events Run</div>
+    <div class="stat pass"><strong>0</strong>Passed</div>
+    <div class="stat fail"><strong>23</strong>Failed</div>
+    <div class="stat"><strong>2667.6s</strong>Duration</div>
+  </div>
+</div>
+<div class="banner fail">❌ 23 event(s) failed</div>
+<div class="rtu-box">
+  <h3>RTU Details</h3>
+  <div class="fields">
+    <div class="field-item">Code <span>fa45fb2d3770</span></div>
+    <div class="field-item">orderRef <span>E2ERDT0120372</span></div>
+    <div class="field-item">Load <span>Oosterhout (NL)</span></div>
+    <div class="field-item">Delivery <span>Berlin (DE)</span></div>
+  </div>
+</div>
+<div class="events">
+    <div class="event-card fail">
+      <div class="event-header">
+        <span class="seq">#1</span><span class="flow-pos">POSITIVE</span>
+        <span class="event-name">truckDrivingToPickUpLocation</span>
+        <span class="sit-type">DRIVING_TO_LOAD · EML/CFM</span>
+        <span class="http">HTTP 500</span>
+        <span class="duration">67411ms</span>
+        <span class="ts">06:04:51 UTC</span>
+        <span class="badge fail">FAILED</span>
+      </div>
+      <table class="assertions">
+        <thead><tr><th></th><th>Assertion · Field</th><th>Why it maps / Why blocked</th><th>Actual value</th><th>Expected (on fail)</th></tr></thead>
+        <tbody><tr class="fail"><td>❌</td><td><span class="pos-label">✔ SHOULD MAP</span><br><code class="field-name">truckDrivingToPickUpLocation</code></td><td class="cond-cell"><div class="cond-block"><div class="cond-title">Conditions to map this field:</div><table class="cond-table"><tr class="cond-row "><td>✅</td><td class="cond-key">situation.event</td><td class="cond-required">required: <code>DRIVING_TO_LOAD</code></td><td class="cond-sent">sent: <code>DRIVING_TO_LOAD</code></td></tr><tr class="cond-row "><td>✅</td><td class="cond-key">situation.situation_code</td><td class="cond-required">required: <code>EML</code></td><td class="cond-sent">sent: <code>EML</code></td></tr><tr class="cond-row "><td>✅</td><td class="cond-key">situation.justification_code</td><td class="cond-required">required: <code>CFM</code></td><td class="cond-sent">sent: <code>CFM</code></td></tr></table></div><div class="cond-summary pos">All conditions met → field should map</div></td><td><code>—</code></td><td><code class="exp">2026-07-04T00:30:43.000Z</code></td></tr></tbody>
+      </table>
+    </div>
+    <div class="event-card fail">
+      <div class="event-header">
+        <span class="seq">#2</span><span class="flow-pos">POSITIVE</span>
+        <span class="event-name">actualArrivalAtPickUpLocation</span>
+        <span class="sit-type">ARR_LOAD · EML/ARS</span>
+        <span class="http">HTTP 500</span>
+        <span class="duration">118569ms</span>
+        <span class="ts">06:06:50 UTC</span>
+        <span class="badge fail">FAILED</span>
+      </div>
+      <table class="assertions">
+        <thead><tr><th></th><th>Assertion · Field</th><th>Why it maps / Why blocked</th><th>Actual value</th><th>Expected (on fail)</th></tr></thead>
+        <tbody><tr class="fail"><td>❌</td><td><span class="pos-label">✔ SHOULD MAP</span><br><code class="field-name">actualArrivalAtPickUpLocation</code></td><td class="cond-cell"><div class="cond-block"><div class="cond-title">Conditions to map this field:</div><table class="cond-table"><tr class="cond-row "><td>✅</td><td class="cond-key">situation.event</td><td class="cond-required">required: <code>ARR_LOAD</code></td><td class="cond-sent">sent: <code>ARR_LOAD</code></td></tr><tr class="cond-row "><td>✅</td><td class="cond-key">situation.situation_code</td><td class="cond-required">required: <code>EML</code></td><td class="cond-sent">sent: <code>EML</code></td></tr><tr class="cond-row "><td>✅</td><td class="cond-key">situation.justification_code</td><td class="cond-required">required: <code>ARS</code></td><td class="cond-sent">sent: <code>ARS</code></td></tr></table></div><div class="cond-summary pos">All conditions met → field should map</div></td><td><code>—</code></td><td><code class="exp">2026-07-05T04:30:51.000Z</code></td></tr></tbody>
+      </table>
+    </div>
+    <div class="event-card fail">
+      <div class="event-header">
+        <span class="seq">#3</span><span class="flow-pos">POSITIVE</span>
+        <span class="event-name">loaded</span>
+        <span class="sit-type">CON_LOAD · ECH/CFM</span>
+        <span class="http">HTTP 500</span>
+        <span class="duration">300348ms</span>
+        <span class="ts">06:11:50 UTC</span>
+        <span class="badge fail">FAILED</span>
+      </div>
+      <table class="assertions">
+        <thead><tr><th></th><th>Assertion · Field</th><th>Why it maps / Why blocked</th><th>Actual value</th><th>Expected (on fail)</th></tr></thead>
+        <tbody><tr class="fail"><td>❌</td><td><span class="pos-label">✔ SHOULD MAP</span><br><code class="field-name">loaded</code></td><td class="cond-cell"><div class="cond-block"><div class="cond-title">Conditions to map this field:</div><table class="cond-table"><tr class="cond-row "><td>✅</td><td class="cond-key">situation.event</td><td class="cond-required">required: <code>CON_LOAD</code></td><td class="cond-sent">sent: <code>CON_LOAD</code></td></tr><tr class="cond-row "><td>✅</td><td class="cond-key">situation.situation_code</td><td class="cond-required">required: <code>ECH</code></td><td class="cond-sent">sent: <code>ECH</code></td></tr><tr class="cond-row "><td>✅</td><td class="cond-key">situation.justification_code</td><td class="cond-required">required: <code>CFM</code></td><td class="cond-sent">sent: <code>CFM</code></td></tr></table></div><div class="cond-summary pos">All conditions met → field should map</div></td><td><code>—</code></td><td><code class="exp">2026-07-05T08:30:50.000Z</code></td></tr></tbody>
+      </table>
+    </div>
+    <div class="event-card fail">
+      <div class="event-header">
+        <span class="seq">#4</span><span class="flow-pos">POSITIVE</span>
+        <span class="event-name">actualDeparturePolRoad</span>
+        <span class="sit-type">LEFT_LOADING_SITE · ECH/DES</span>
+        <span class="http">HTTP 500</span>
+        <span class="duration">300990ms</span>
+        <span class="ts">06:16:51 UTC</span>
+        <span class="badge fail">FAILED</span>
+      </div>
+      <table class="assertions">
+        <thead><tr><th></th><th>Assertion · Field</th><th>Why it maps / Why blocked</th><th>Actual value</th><th>Expected (on fail)</th></tr></thead>
+        <tbody><tr class="fail"><td>❌</td><td><span class="pos-label">✔ SHOULD MAP</span><br><code class="field-name">actualDeparturePolRoad</code></td><td class="cond-cell"><div class="cond-block"><div class="cond-title">Conditions to map this field:</div><table class="cond-table"><tr class="cond-row "><td>✅</td><td class="cond-key">situation.event</td><td class="cond-required">required: <code>LEFT_LOADING_SITE</code></td><td class="cond-sent">sent: <code>LEFT_LOADING_SITE</code></td></tr><tr class="cond-row "><td>✅</td><td class="cond-key">situation.situation_code</td><td class="cond-required">required: <code>ECH</code></td><td class="cond-sent">sent: <code>ECH</code></td></tr><tr class="cond-row "><td>✅</td><td class="cond-key">situation.justification_code</td><td class="cond-required">required: <code>DES</code></td><td class="cond-sent">sent: <code>DES</code></td></tr></table></div><div class="cond-summary pos">All conditions met → field should map</div></td><td><code>—</code></td><td><code class="exp">2026-07-05T10:30:50.000Z</code></td></tr></tbody>
+      </table>
+    </div>
+    <div class="event-card fail">
+      <div class="event-header">
+        <span class="seq">#5</span><span class="flow-pos">POSITIVE</span>
+        <span class="event-name">truckDrivingToDeliveryLocation</span>
+        <span class="sit-type">DRIVING_TO_UNLOAD · MLV/CFM</span>
+        <span class="http">HTTP 500</span>
+        <span class="duration">303148ms</span>
+        <span class="ts">06:21:55 UTC</span>
+        <span class="badge fail">FAILED</span>
+      </div>
+      <table class="assertions">
+        <thead><tr><th></th><th>Assertion · Field</th><th>Why it maps / Why blocked</th><th>Actual value</th><th>Expected (on fail)</th></tr></thead>
+        <tbody><tr class="fail"><td>❌</td><td><span class="pos-label">✔ SHOULD MAP</span><br><code class="field-name">truckDrivingToDeliveryLocation</code></td><td class="cond-cell"><div class="cond-block"><div class="cond-title">Conditions to map this field:</div><table class="cond-table"><tr class="cond-row "><td>✅</td><td class="cond-key">situation.event</td><td class="cond-required">required: <code>DRIVING_TO_UNLOAD</code></td><td class="cond-sent">sent: <code>DRIVING_TO_UNLOAD</code></td></tr><tr class="cond-row "><td>✅</td><td class="cond-key">situation.situation_code</td><td class="cond-required">required: <code>MLV</code></td><td class="cond-sent">sent: <code>MLV</code></td></tr><tr class="cond-row "><td>✅</td><td class="cond-key">situation.justification_code</td><td class="cond-required">required: <code>CFM</code></td><td class="cond-sent">sent: <code>CFM</code></td></tr></table></div><div class="cond-summary pos">All conditions met → field should map</div></td><td><code>—</code></td><td><code class="exp">2026-07-06T02:30:51.000Z</code></td></tr></tbody>
+      </table>
+    </div>
+    <div class="event-card fail">
+      <div class="event-header">
+        <span class="seq">#6</span><span class="flow-pos">POSITIVE</span>
+        <span class="event-name">actualArrivalPodRoad</span>
+        <span class="sit-type">ARR_UNLOAD · LIV/ARS</span>
+        <span class="http">HTTP 500</span>
+        <span class="duration">303182ms</span>
+        <span class="ts">06:26:58 UTC</span>
+        <span class="badge fail">FAILED</span>
+      </div>
+      <table class="assertions">
+        <thead><tr><th></th><th>Assertion · Field</th><th>Why it maps / Why blocked</th><th>Actual value</th><th>Expected (on fail)</th></tr></thead>
+        <tbody><tr class="fail"><td>❌</td><td><span class="pos-label">✔ SHOULD MAP</span><br><code class="field-name">actualArrivalPodRoad</code></td><td class="cond-cell"><div class="cond-block"><div class="cond-title">Conditions to map this field:</div><table class="cond-table"><tr class="cond-row "><td>✅</td><td class="cond-key">situation.event</td><td class="cond-required">required: <code>ARR_UNLOAD</code></td><td class="cond-sent">sent: <code>ARR_UNLOAD</code></td></tr><tr class="cond-row "><td>✅</td><td class="cond-key">situation.situation_code</td><td class="cond-required">required: <code>LIV</code></td><td class="cond-sent">sent: <code>LIV</code></td></tr><tr class="cond-row "><td>✅</td><td class="cond-key">situation.justification_code</td><td class="cond-required">required: <code>ARS</code></td><td class="cond-sent">sent: <code>ARS</code></td></tr></table></div><div class="cond-summary pos">All conditions met → field should map</div></td><td><code>—</code></td><td><code class="exp">2026-07-06T08:30:55.000Z</code></td></tr></tbody>
+      </table>
+    </div>
+    <div class="event-card fail">
+      <div class="event-header">
+        <span class="seq">#7</span><span class="flow-pos">POSITIVE</span>
+        <span class="event-name">delivered</span>
+        <span class="sit-type">CON_UNLOAD · LIV/CFM</span>
+        <span class="http">HTTP 500</span>
+        <span class="duration">302352ms</span>
+        <span class="ts">06:32:01 UTC</span>
+        <span class="badge fail">FAILED</span>
+      </div>
+      <table class="assertions">
+        <thead><tr><th></th><th>Assertion · Field</th><th>Why it maps / Why blocked</th><th>Actual value</th><th>Expected (on fail)</th></tr></thead>
+        <tbody><tr class="fail"><td>❌</td><td><span class="pos-label">✔ SHOULD MAP</span><br><code class="field-name">delivered</code></td><td class="cond-cell"><div class="cond-block"><div class="cond-title">Conditions to map this field:</div><table class="cond-table"><tr class="cond-row "><td>✅</td><td class="cond-key">situation.event</td><td class="cond-required">required: <code>CON_UNLOAD</code></td><td class="cond-sent">sent: <code>CON_UNLOAD</code></td></tr><tr class="cond-row "><td>✅</td><td class="cond-key">situation.situation_code</td><td class="cond-required">required: <code>LIV</code></td><td class="cond-sent">sent: <code>LIV</code></td></tr><tr class="cond-row "><td>✅</td><td class="cond-key">situation.justification_code</td><td class="cond-required">required: <code>CFM</code></td><td class="cond-sent">sent: <code>CFM</code></td></tr></table></div><div class="cond-summary pos">All conditions met → field should map</div></td><td><code>—</code></td><td><code class="exp">2026-07-07T03:30:58.000Z</code></td></tr></tbody>
+      </table>
+    </div>
+    <div class="event-card fail">
+      <div class="event-header">
+        <span class="seq">#8</span><span class="flow-pos">POSITIVE</span>
+        <span class="event-name">truckDepartureFromDeliveryLocation</span>
+        <span class="sit-type">DRIVER_LEFT_UNLOAD · LIV/DES</span>
+        <span class="http">HTTP 500</span>
+        <span class="duration">302381ms</span>
+        <span class="ts">06:37:03 UTC</span>
+        <span class="badge fail">FAILED</span>
+      </div>
+      <table class="assertions">
+        <thead><tr><th></th><th>Assertion · Field</th><th>Why it maps / Why blocked</th><th>Actual value</th><th>Expected (on fail)</th></tr></thead>
+        <tbody><tr class="fail"><td>❌</td><td><span class="pos-label">✔ SHOULD MAP</span><br><code class="field-name">truckDepartureFromDeliveryLocation</code></td><td class="cond-cell"><div class="cond-block"><div class="cond-title">Conditions to map this field:</div><table class="cond-table"><tr class="cond-row "><td>✅</td><td class="cond-key">situation.event</td><td class="cond-required">required: <code>DRIVER_LEFT_UNLOAD</code></td><td class="cond-sent">sent: <code>DRIVER_LEFT_UNLOAD</code></td></tr><tr class="cond-row "><td>✅</td><td class="cond-key">situation.situation_code</td><td class="cond-required">required: <code>LIV</code></td><td class="cond-sent">sent: <code>LIV</code></td></tr><tr class="cond-row "><td>✅</td><td class="cond-key">situation.justification_code</td><td class="cond-required">required: <code>DES</code></td><td class="cond-sent">sent: <code>DES</code></td></tr></table></div><div class="cond-summary pos">All conditions met → field should map</div></td><td><code>—</code></td><td><code class="exp">2026-07-07T05:30:01.000Z</code></td></tr></tbody>
+      </table>
+    </div>
+    <div class="event-card fail">
+      <div class="event-header">
+        <span class="seq">#9</span><span class="flow-pos">POSITIVE</span>
+        <span class="event-name">predictedArrivalAtPickUpLocation</span>
+        <span class="sit-type">ETA_EVENT · COM/CFM</span>
+        <span class="http">HTTP 500</span>
+        <span class="duration">303022ms</span>
+        <span class="ts">06:42:06 UTC</span>
+        <span class="badge fail">FAILED</span>
+      </div>
+      <table class="assertions">
+        <thead><tr><th></th><th>Assertion · Field</th><th>Why it maps / Why blocked</th><th>Actual value</th><th>Expected (on fail)</th></tr></thead>
+        <tbody><tr class="fail"><td>❌</td><td><span class="pos-label">✔ SHOULD MAP</span><br><code class="field-name">predictedArrivalAtPickUpLocation</code></td><td class="cond-cell"><div class="cond-block"><div class="cond-title">Conditions to map this field:</div><table class="cond-table"><tr class="cond-row "><td>✅</td><td class="cond-key">situation.event</td><td class="cond-required">required: <code>ETA_EVENT</code></td><td class="cond-sent">sent: <code>ETA_EVENT</code></td></tr><tr class="cond-row "><td>✅</td><td class="cond-key">situation.situation_code</td><td class="cond-required">required: <code>COM</code></td><td class="cond-sent">sent: <code>COM</code></td></tr><tr class="cond-row "><td>✅</td><td class="cond-key">situation.justification_code</td><td class="cond-required">required: <code>CFM</code></td><td class="cond-sent">sent: <code>CFM</code></td></tr><tr class="cond-row "><td>✅</td><td class="cond-key">order.etd</td><td class="cond-required">required: <code>present</code></td><td class="cond-sent">sent: <code>2026-07-09T08:00:03.733Z</code></td></tr></table></div><div class="cond-summary pos">All conditions met → field should map</div></td><td><code>—</code></td><td><code class="exp">2026-07-09T02:30:03.000Z</code></td></tr></tbody>
+      </table>
+    </div>
+    <div class="event-card fail">
+      <div class="event-header">
+        <span class="seq">#10</span><span class="flow-pos">POSITIVE</span>
+        <span class="event-name">predictedArrivalAtDeliveryLocation</span>
+        <span class="sit-type">ETA_EVENT · COM/CFM</span>
+        <span class="http">HTTP 500</span>
+        <span class="duration">302849ms</span>
+        <span class="ts">06:47:11 UTC</span>
+        <span class="badge fail">FAILED</span>
+      </div>
+      <table class="assertions">
+        <thead><tr><th></th><th>Assertion · Field</th><th>Why it maps / Why blocked</th><th>Actual value</th><th>Expected (on fail)</th></tr></thead>
+        <tbody><tr class="fail"><td>❌</td><td><span class="pos-label">✔ SHOULD MAP</span><br><code class="field-name">predictedArrivalAtDeliveryLocation</code></td><td class="cond-cell"><div class="cond-block"><div class="cond-title">Conditions to map this field:</div><table class="cond-table"><tr class="cond-row "><td>✅</td><td class="cond-key">situation.event</td><td class="cond-required">required: <code>ETA_EVENT</code></td><td class="cond-sent">sent: <code>ETA_EVENT</code></td></tr><tr class="cond-row "><td>✅</td><td class="cond-key">situation.situation_code</td><td class="cond-required">required: <code>COM</code></td><td class="cond-sent">sent: <code>COM</code></td></tr><tr class="cond-row "><td>✅</td><td class="cond-key">situation.justification_code</td><td class="cond-required">required: <code>CFM</code></td><td class="cond-sent">sent: <code>CFM</code></td></tr><tr class="cond-row "><td>✅</td><td class="cond-key">order.eta</td><td class="cond-required">required: <code>present</code></td><td class="cond-sent">sent: <code>2026-07-10T08:00:06.972Z</code></td></tr></table></div><div class="cond-summary pos">All conditions met → field should map</div></td><td><code>—</code></td><td><code class="exp">2026-07-10T02:30:06.000Z</code></td></tr></tbody>
+      </table>
+    </div>
+    <div class="event-card fail">
+      <div class="event-header">
+        <span class="seq">#11</span><span class="flow-neg">NEGATIVE</span>
+        <span class="event-name">n01</span>
+        <span class="sit-type">DRIVING_TO_LOAD · XXX/CFM</span>
+        <span class="http">HTTP 500</span>
+        <span class="duration">166ms</span>
+        <span class="ts">06:47:17 UTC</span>
+        <span class="badge fail">FAILED</span>
+      </div><div class="neg-strategy">🔀 <b>Strategy:</b> Wrong situation_code (XXX)</div>
+      <table class="assertions">
+        <thead><tr><th></th><th>Assertion · Field</th><th>Why it maps / Why blocked</th><th>Actual value</th><th>Expected (on fail)</th></tr></thead>
+        <tbody><tr class="blocked"><td>🚫</td><td><span class="blocked-label">BLOCKED</span><br><code class="field-name">truckDrivingToPickUpLocation</code></td><td class="cond-cell"><div class="cond-summary blocked">Not written because: sent <code>situation.situation_code</code> = <b>"XXX"</b> but required <b>"EML"</b></div></td><td><code>—</code></td><td></td></tr></tbody>
+      </table>
+    </div>
+    <div class="event-card fail">
+      <div class="event-header">
+        <span class="seq">#12</span><span class="flow-neg">NEGATIVE</span>
+        <span class="event-name">n02</span>
+        <span class="sit-type">DRIVING_TO_LOAD · EML/XXX</span>
+        <span class="http">HTTP 500</span>
+        <span class="duration">169ms</span>
+        <span class="ts">06:47:23 UTC</span>
+        <span class="badge fail">FAILED</span>
+      </div><div class="neg-strategy">🔀 <b>Strategy:</b> Wrong justification_code (XXX)</div>
+      <table class="assertions">
+        <thead><tr><th></th><th>Assertion · Field</th><th>Why it maps / Why blocked</th><th>Actual value</th><th>Expected (on fail)</th></tr></thead>
+        <tbody><tr class="blocked"><td>🚫</td><td><span class="blocked-label">BLOCKED</span><br><code class="field-name">truckDrivingToPickUpLocation</code></td><td class="cond-cell"><div class="cond-summary blocked">Not written because: sent <code>situation.justification_code</code> = <b>"XXX"</b> but required <b>"CFM"</b></div></td><td><code>—</code></td><td></td></tr></tbody>
+      </table>
+    </div>
+    <div class="event-card fail">
+      <div class="event-header">
+        <span class="seq">#13</span><span class="flow-neg">NEGATIVE</span>
+        <span class="event-name">n03</span>
+        <span class="sit-type">UNKNOWN_EVENT · EML/CFM</span>
+        <span class="http">HTTP 500</span>
+        <span class="duration">159ms</span>
+        <span class="ts">06:47:30 UTC</span>
+        <span class="badge fail">FAILED</span>
+      </div><div class="neg-strategy">🔀 <b>Strategy:</b> Wrong situation.event name</div>
+      <table class="assertions">
+        <thead><tr><th></th><th>Assertion · Field</th><th>Why it maps / Why blocked</th><th>Actual value</th><th>Expected (on fail)</th></tr></thead>
+        <tbody><tr class="blocked"><td>🚫</td><td><span class="blocked-label">BLOCKED</span><br><code class="field-name">truckDrivingToPickUpLocation</code></td><td class="cond-cell"><div class="cond-summary blocked">Not written because: sent <code>situation.event</code> = <b>"UNKNOWN_EVENT"</b> but required <b>"DRIVING_TO_LOAD"</b></div></td><td><code>—</code></td><td></td></tr></tbody>
+      </table>
+    </div>
+    <div class="event-card fail">
+      <div class="event-header">
+        <span class="seq">#14</span><span class="flow-neg">NEGATIVE</span>
+        <span class="event-name">n04</span>
+        <span class="sit-type">ETA_EVENT · COM/CFM</span>
+        <span class="http">HTTP 500</span>
+        <span class="duration">191ms</span>
+        <span class="ts">06:47:36 UTC</span>
+        <span class="badge fail">FAILED</span>
+      </div><div class="neg-strategy">🔀 <b>Strategy:</b> ETA_EVENT — no eta/etd set</div>
+      <table class="assertions">
+        <thead><tr><th></th><th>Assertion · Field</th><th>Why it maps / Why blocked</th><th>Actual value</th><th>Expected (on fail)</th></tr></thead>
+        <tbody><tr class="blocked"><td>🚫</td><td><span class="blocked-label">BLOCKED</span><br><code class="field-name">predictedArrivalAtPickUpLocation</code></td><td class="cond-cell"><div class="cond-summary blocked">Not written because: sent <code>order.etd/eta</code> = <b>"null"</b> but required <b>"present"</b></div></td><td><code>—</code></td><td></td></tr></tbody>
+      </table>
+    </div>
+    <div class="event-card fail">
+      <div class="event-header">
+        <span class="seq">#15</span><span class="flow-neg">NEGATIVE</span>
+        <span class="event-name">n05</span>
+        <span class="sit-type">DRIVING_TO_LOAD · EML/CFM</span>
+        <span class="http">HTTP 500</span>
+        <span class="duration">163ms</span>
+        <span class="ts">06:47:36 UTC</span>
+        <span class="badge fail">FAILED</span>
+      </div><div class="neg-strategy">🔀 <b>Strategy:</b> Unknown orderRef — silently dropped</div>
+      <table class="assertions">
+        <thead><tr><th></th><th>Assertion · Field</th><th>Why it maps / Why blocked</th><th>Actual value</th><th>Expected (on fail)</th></tr></thead>
+        <tbody><tr class="fail"><td>❌</td><td><span class="pos-label">✔ SHOULD MAP</span><br><code class="field-name">HTTP status</code></td><td class="cond-cell"><div class="cond-block"><div class="cond-title">Conditions to map this field:</div><table class="cond-table"><tr class="cond-row cond-fail"><td>❌</td><td class="cond-key">order.reference</td><td class="cond-required">required: <code>known ref</code></td><td class="cond-sent">sent: <code>NONEXISTENT-ORDER-999</code></td></tr></table></div><div class="cond-summary warn">Some conditions not met</div></td><td><code>500</code></td><td><code class="exp">200 (silently dropped)</code></td></tr></tbody>
+      </table>
+    </div>
+    <div class="event-card fail">
+      <div class="event-header">
+        <span class="seq">#16</span><span class="flow-neg">NEGATIVE</span>
+        <span class="event-name">n06</span>
+        <span class="sit-type">DRIVING_TO_LOAD · null/CFM</span>
+        <span class="http">HTTP 500</span>
+        <span class="duration">163ms</span>
+        <span class="ts">06:47:42 UTC</span>
+        <span class="badge fail">FAILED</span>
+      </div><div class="neg-strategy">🔀 <b>Strategy:</b> Null situation_code</div>
+      <table class="assertions">
+        <thead><tr><th></th><th>Assertion · Field</th><th>Why it maps / Why blocked</th><th>Actual value</th><th>Expected (on fail)</th></tr></thead>
+        <tbody><tr class="blocked"><td>🚫</td><td><span class="blocked-label">BLOCKED</span><br><code class="field-name">truckDrivingToPickUpLocation</code></td><td class="cond-cell"><div class="cond-summary blocked">Not written because: sent <code>situation.situation_code</code> = <b>"null"</b> but required <b>"EML"</b></div></td><td><code>—</code></td><td></td></tr></tbody>
+      </table>
+    </div>
+    <div class="event-card fail">
+      <div class="event-header">
+        <span class="seq">#17</span><span class="flow-neg">NEGATIVE</span>
+        <span class="event-name">n07</span>
+        <span class="sit-type">DRIVING_TO_LOAD · EML/null</span>
+        <span class="http">HTTP 500</span>
+        <span class="duration">160ms</span>
+        <span class="ts">06:47:48 UTC</span>
+        <span class="badge fail">FAILED</span>
+      </div><div class="neg-strategy">🔀 <b>Strategy:</b> Null justification_code</div>
+      <table class="assertions">
+        <thead><tr><th></th><th>Assertion · Field</th><th>Why it maps / Why blocked</th><th>Actual value</th><th>Expected (on fail)</th></tr></thead>
+        <tbody><tr class="blocked"><td>🚫</td><td><span class="blocked-label">BLOCKED</span><br><code class="field-name">truckDrivingToPickUpLocation</code></td><td class="cond-cell"><div class="cond-summary blocked">Not written because: sent <code>situation.justification_code</code> = <b>"null"</b> but required <b>"CFM"</b></div></td><td><code>—</code></td><td></td></tr></tbody>
+      </table>
+    </div>
+    <div class="event-card fail">
+      <div class="event-header">
+        <span class="seq">#18</span><span class="flow-neg">NEGATIVE</span>
+        <span class="event-name">n08</span>
+        <span class="sit-type">DRIVING_TO_LOAD · EML/CFM</span>
+        <span class="http">HTTP 500</span>
+        <span class="duration">163ms</span>
+        <span class="ts">06:47:55 UTC</span>
+        <span class="badge fail">FAILED</span>
+      </div><div class="neg-strategy">🔀 <b>Strategy:</b> Correct conditions, date=null</div>
+      <table class="assertions">
+        <thead><tr><th></th><th>Assertion · Field</th><th>Why it maps / Why blocked</th><th>Actual value</th><th>Expected (on fail)</th></tr></thead>
+        <tbody><tr class="pass"><td>✅</td><td><span class="pos-label">✔ SHOULD MAP</span><br><code class="field-name">truckDrivingToPickUpLocation</code></td><td class="cond-cell"><div class="cond-block"><div class="cond-title">Conditions to map this field:</div><table class="cond-table"><tr class="cond-row "><td>✅</td><td class="cond-key">situation.event</td><td class="cond-required">required: <code>DRIVING_TO_LOAD</code></td><td class="cond-sent">sent: <code>DRIVING_TO_LOAD</code></td></tr><tr class="cond-row "><td>✅</td><td class="cond-key">situation.situation_code</td><td class="cond-required">required: <code>EML</code></td><td class="cond-sent">sent: <code>EML</code></td></tr><tr class="cond-row "><td>✅</td><td class="cond-key">situation.justification_code</td><td class="cond-required">required: <code>CFM</code></td><td class="cond-sent">sent: <code>CFM</code></td></tr><tr class="cond-row cond-fail"><td>❌</td><td class="cond-key">situation.date</td><td class="cond-required">required: <code>any value</code></td><td class="cond-sent">sent: <code>null</code></td></tr></table></div><div class="cond-summary warn">Some conditions not met</div></td><td><code>null</code></td><td></td></tr></tbody>
+      </table>
+    </div>
+    <div class="event-card fail">
+      <div class="event-header">
+        <span class="seq">#19</span><span class="flow-neg">NEGATIVE</span>
+        <span class="event-name">n09</span>
+        <span class="sit-type">driving_to_load · EML/CFM</span>
+        <span class="http">HTTP 500</span>
+        <span class="duration">171ms</span>
+        <span class="ts">06:48:01 UTC</span>
+        <span class="badge fail">FAILED</span>
+      </div><div class="neg-strategy">🔀 <b>Strategy:</b> Lowercase situation.event (case-sensitive)</div>
+      <table class="assertions">
+        <thead><tr><th></th><th>Assertion · Field</th><th>Why it maps / Why blocked</th><th>Actual value</th><th>Expected (on fail)</th></tr></thead>
+        <tbody><tr class="blocked"><td>🚫</td><td><span class="blocked-label">BLOCKED</span><br><code class="field-name">truckDrivingToPickUpLocation</code></td><td class="cond-cell"><div class="cond-summary blocked">Not written because: sent <code>situation.event</code> = <b>"driving_to_load"</b> but required <b>"DRIVING_TO_LOAD"</b></div></td><td><code>—</code></td><td></td></tr></tbody>
+      </table>
+    </div>
+    <div class="event-card fail">
+      <div class="event-header">
+        <span class="seq">#20</span><span class="flow-neg">NEGATIVE</span>
+        <span class="event-name">n10</span>
+        <span class="sit-type">DRIVING_TO_LOAD · eml/CFM</span>
+        <span class="http">HTTP 500</span>
+        <span class="duration">177ms</span>
+        <span class="ts">06:48:07 UTC</span>
+        <span class="badge fail">FAILED</span>
+      </div><div class="neg-strategy">🔀 <b>Strategy:</b> Lowercase situation_code (case-sensitive)</div>
+      <table class="assertions">
+        <thead><tr><th></th><th>Assertion · Field</th><th>Why it maps / Why blocked</th><th>Actual value</th><th>Expected (on fail)</th></tr></thead>
+        <tbody><tr class="blocked"><td>🚫</td><td><span class="blocked-label">BLOCKED</span><br><code class="field-name">truckDrivingToPickUpLocation</code></td><td class="cond-cell"><div class="cond-summary blocked">Not written because: sent <code>situation.situation_code</code> = <b>"eml"</b> but required <b>"EML"</b></div></td><td><code>—</code></td><td></td></tr></tbody>
+      </table>
+    </div>
+    <div class="event-card fail">
+      <div class="event-header">
+        <span class="seq">#21</span><span class="flow-neg">NEGATIVE</span>
+        <span class="event-name">n11</span>
+        <span class="sit-type">DRIVING_TO_LOAD · EML/CFM</span>
+        <span class="http">HTTP 500</span>
+        <span class="duration">154ms</span>
+        <span class="ts">06:48:07 UTC</span>
+        <span class="badge fail">FAILED</span>
+      </div><div class="neg-strategy">🔀 <b>Strategy:</b> Missing Authorization → HTTP 200 (x-api-key only enforced)</div>
+      <table class="assertions">
+        <thead><tr><th></th><th>Assertion · Field</th><th>Why it maps / Why blocked</th><th>Actual value</th><th>Expected (on fail)</th></tr></thead>
+        <tbody><tr class="fail"><td>❌</td><td><span class="pos-label">✔ SHOULD MAP</span><br><code class="field-name">HTTP status</code></td><td class="cond-cell"><div class="cond-block"><div class="cond-title">Conditions to map this field:</div><table class="cond-table"><tr class="cond-row cond-fail"><td>❌</td><td class="cond-key">HTTP status</td><td class="cond-required">required: <code>200</code></td><td class="cond-sent">sent: <code>500</code></td></tr></table></div><div class="cond-summary warn">Some conditions not met</div></td><td><code>500</code></td><td><code class="exp">200</code></td></tr></tbody>
+      </table>
+    </div>
+    <div class="event-card fail">
+      <div class="event-header">
+        <span class="seq">#22</span><span class="flow-neg">NEGATIVE</span>
+        <span class="event-name">n12</span>
+        <span class="sit-type">DRIVING_TO_LOAD · EML/CFM</span>
+        <span class="http">HTTP 500</span>
+        <span class="duration">164ms</span>
+        <span class="ts">06:48:07 UTC</span>
+        <span class="badge fail">FAILED</span>
+      </div><div class="neg-strategy">🔀 <b>Strategy:</b> Invalid Bearer token → HTTP 200 (x-api-key only enforced)</div>
+      <table class="assertions">
+        <thead><tr><th></th><th>Assertion · Field</th><th>Why it maps / Why blocked</th><th>Actual value</th><th>Expected (on fail)</th></tr></thead>
+        <tbody><tr class="fail"><td>❌</td><td><span class="pos-label">✔ SHOULD MAP</span><br><code class="field-name">HTTP status</code></td><td class="cond-cell"><div class="cond-block"><div class="cond-title">Conditions to map this field:</div><table class="cond-table"><tr class="cond-row cond-fail"><td>❌</td><td class="cond-key">HTTP status</td><td class="cond-required">required: <code>200</code></td><td class="cond-sent">sent: <code>500</code></td></tr></table></div><div class="cond-summary warn">Some conditions not met</div></td><td><code>500</code></td><td><code class="exp">200</code></td></tr></tbody>
+      </table>
+    </div>
+    <div class="event-card fail">
+      <div class="event-header">
+        <span class="seq">#23</span><span class="flow-neg">NEGATIVE</span>
+        <span class="event-name">n13</span>
+        <span class="sit-type">— · null/null</span>
+        <span class="http">HTTP 500</span>
+        <span class="duration">156ms</span>
+        <span class="ts">06:48:07 UTC</span>
+        <span class="badge fail">FAILED</span>
+      </div><div class="neg-strategy">🔀 <b>Strategy:</b> Empty request body → HTTP 200 (accepted silently)</div>
+      <table class="assertions">
+        <thead><tr><th></th><th>Assertion · Field</th><th>Why it maps / Why blocked</th><th>Actual value</th><th>Expected (on fail)</th></tr></thead>
+        <tbody><tr class="fail"><td>❌</td><td><span class="pos-label">✔ SHOULD MAP</span><br><code class="field-name">HTTP status</code></td><td class="cond-cell"><div class="cond-block"><div class="cond-title">Conditions to map this field:</div><table class="cond-table"><tr class="cond-row cond-fail"><td>❌</td><td class="cond-key">HTTP status</td><td class="cond-required">required: <code>200</code></td><td class="cond-sent">sent: <code>500</code></td></tr></table></div><div class="cond-summary warn">Some conditions not met</div></td><td><code>500</code></td><td><code class="exp">200</code></td></tr></tbody>
+      </table>
+    </div></div>
+<div class="footer">Logward QA Automation — Road E2E Session Report · 2026-07-07 06:48:07 UTC</div>
+</body></html>

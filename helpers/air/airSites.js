@@ -124,4 +124,53 @@ function toPartialEventSite(s, overrides = {}) {
   };
 }
 
-module.exports = { SITE, toStaticSite, toEventSite, toPartialEventSite };
+// ─────────────────────────────────────────────────────────────────────────────
+//  HUB_POOL — 10 real international cargo-hub airports.
+//  Used by AirEventsOut.spec.js: 4 are picked randomly each run so hub-slot logic
+//  is proven with different airport combinations, not just the same 4 codes.
+//
+//  Shape matches toEventSite() output: iata_code, country, description,
+//  address_line, city, zipcode — no id / position needed.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const HUB_POOL = [
+  { iata_code: 'DXB', country: 'AE', description: 'Dubai International Airport',        address_line: 'Airport Road',              city: 'Dubai',            zipcode: '00000'   },
+  { iata_code: 'FRA', country: 'DE', description: 'Frankfurt Airport',                   address_line: 'Airport Blvd',              city: 'Frankfurt',        zipcode: '60547'   },
+  { iata_code: 'SIN', country: 'SG', description: 'Singapore Changi Airport',            address_line: 'Airport Boulevard',         city: 'Singapore',        zipcode: '819642'  },
+  { iata_code: 'AMS', country: 'NL', description: 'Amsterdam Airport Schiphol',          address_line: 'Evert van de Beekstraat',   city: 'Amsterdam',        zipcode: '1118CP'  },
+  { iata_code: 'CDG', country: 'FR', description: 'Paris Charles de Gaulle Airport',     address_line: 'Route de l\'Aeroport',      city: 'Roissy-en-France', zipcode: '95700'   },
+  { iata_code: 'LHR', country: 'GB', description: 'London Heathrow Airport',             address_line: 'Longford',                  city: 'London',           zipcode: 'TW6 1EW' },
+  { iata_code: 'DOH', country: 'QA', description: 'Hamad International Airport',         address_line: 'Airport Street',            city: 'Doha',             zipcode: '00000'   },
+  { iata_code: 'HKG', country: 'HK', description: 'Hong Kong International Airport',     address_line: 'Lantau Island',             city: 'Hong Kong',        zipcode: '999077'  },
+  { iata_code: 'NRT', country: 'JP', description: 'Tokyo Narita International Airport',  address_line: '1-1 Furugome',              city: 'Narita',           zipcode: '282-0004'},
+  { iata_code: 'ICN', country: 'KR', description: 'Seoul Incheon International Airport', address_line: '272 Gonghang-ro',           city: 'Incheon',          zipcode: '22382'   },
+];
+
+/**
+ * Pick one random item from any array.
+ *
+ * @template T
+ * @param {T[]} pool
+ * @returns {T}
+ */
+function pickRandom(pool) {
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+/**
+ * Pick `n` unique hubs from HUB_POOL (no repeats within a run).
+ * Shuffles a copy of the pool and returns the first `n` entries.
+ *
+ * @param {number} [n=4]
+ * @returns {typeof HUB_POOL}
+ */
+function pickHubs(n = 4) {
+  const copy = [...HUB_POOL];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy.slice(0, n);
+}
+
+module.exports = { SITE, toStaticSite, toEventSite, toPartialEventSite, HUB_POOL, pickRandom, pickHubs };
